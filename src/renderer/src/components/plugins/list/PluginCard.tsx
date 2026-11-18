@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { BadgeCheck, Check } from 'lucide-react'
 import { useIntlLocale, useTranslate } from '@/i18n/use-translate'
 import { pluginOfficialLabel } from '../presentation/plugin-official-label'
@@ -45,6 +46,7 @@ export function PluginCard({
 }: PluginCardProps): React.JSX.Element {
   const t = useTranslate()
   const intlLocale = useIntlLocale()
+  const [failedCover, setFailedCover] = useState<string | null>(null)
   const installCount = usePluginInstallCount(entry)
   const cover =
     servedPluginHostImages(entry.installed?.images)?.cover ??
@@ -57,10 +59,11 @@ export function PluginCard({
       onPointerLeave={onIntentEnd}
     >
       <div className="relative border-b border-border/70">
-        {cover ? (
+        {cover && cover.url !== failedCover ? (
           // Why alt="": the name link says what this is; the cover is decoration here.
           <img
             src={cover.url}
+            onError={() => setFailedCover(cover.url)}
             alt=""
             width={cover.width}
             height={cover.height}

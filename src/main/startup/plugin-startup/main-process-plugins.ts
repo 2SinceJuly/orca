@@ -1,6 +1,4 @@
-import { join } from 'node:path'
-import { PluginImageCache } from '../../plugins/media/plugin-image-cache'
-import { installPluginImageProtocolHandler } from '../../plugins/media/plugin-image-protocol'
+import { createMainProcessPluginImages } from './main-process-plugin-images'
 import { getPluginDesktopFrameServices } from '../../plugins/panels/desktop-actions/plugin-frame-desktop-services'
 import { pluginHostVersion } from '../../../shared/plugins/installation/plugin-host-version'
 import { app, BrowserWindow, net } from 'electron'
@@ -77,11 +75,16 @@ export async function initializeMainProcessPlugins(core: DesktopCore, store: Sto
       }
     }
   })
-  const pluginImageCache = new PluginImageCache(
-    join(getPluginsDataDir(app.getPath('userData')), 'image-cache')
-  )
+  const pluginImages = createMainProcessPluginImages({
+    userDataPath: app.getPath('userData'),
+    findValidPlugin: (pluginKey) => core.pluginService?.findValidPlugin(pluginKey) ?? null,
+    findApprovedPlugin: (pluginKey) =>
+      core.pluginService?.findApprovedPlugin(pluginKey, true) ?? null
+  })
   core.pluginMarketplaceService = new PluginMarketplaceService({
-    imageCache: pluginImageCache,
+    store: pluginImages.store,
+    repositories: pluginImages.repositories,
+    imageCache: pluginImages.imageCache,
     pluginsDataDir: getPluginsDataDir(app.getPath('userData')),
     getKillListEntry: (pluginKey) => core.pluginKillListService?.find(pluginKey) ?? null,
     hostVersion: pluginHostVersion(app.getVersion())
@@ -104,7 +107,7 @@ export async function initializeMainProcessPlugins(core: DesktopCore, store: Sto
     userDataPath: app.getPath('userData'),
     hostVersion: pluginHostVersion(app.getVersion()),
     blockedPluginReason: (pluginKey) => core.pluginKillListService?.reason(pluginKey) ?? null,
-    imageCache: pluginImageCache,
+    imageCache: pluginImages.imageCache,
     revokeConsent: (pluginKey) =>
       revokePluginConsent({ store, pluginService: core.pluginService, pluginKey })
   })
@@ -181,12 +184,6 @@ export async function initializeMainProcessPlugins(core: DesktopCore, store: Sto
         .catch((error) => console.warn('[plugins] auto-update failed:', error))
     }
   }
-  installPluginImageProtocolHandler({
-    cache: pluginImageCache,
-    findValidPlugin: (pluginKey) => core.pluginService?.findValidPlugin(pluginKey) ?? null,
-    findApprovedPlugin: (pluginKey) =>
-      core.pluginService?.findApprovedPlugin(pluginKey, true) ?? null
-  })
   const bundledPluginBootstrap = new PluginBundledBootstrapCoordinator({
     root: bundledPluginRoot,
     userDataPath: app.getPath('userData'),
