@@ -17,6 +17,7 @@ import { awaitsAnswer } from '../../../../../bots/bot-request-policy'
 import { readBotTurn } from './bot-recipient'
 import { botRequestRecord } from './bot-request-record'
 import { ensureSenderRecords, tellSender } from './bot-request-sender-notice'
+import { readBotTurnInterimStatus } from './bot-turn-interim-status'
 import { getStructuredAgentSessionHost } from '../../../../../native-chat/agent-session-wire/host/structured-agent-session-registry'
 import type { TurnEndedVerdict } from '../../../../../native-chat/agent-session-wire/structured-agent-session-turn-context'
 import type { StructuredAgentSessionRequestFailure } from '../../../../../native-chat/agent-session-wire/observations/structured-agent-session-request-failures'
@@ -129,10 +130,12 @@ export async function noteBotRequestPost(
 export async function settleBotRequestTurn(
   runtime: OrcaRuntimeService,
   sessionId: string,
-  ended?: TurnEndedVerdict
+  ended?: TurnEndedVerdict,
+  /** The provider's id for the turn that ended, whose closing words may say it queued the request. */
+  turnId?: string
 ): Promise<void> {
   if (ended?.outcome !== 'failure') {
-    await settleBotRequests(runtime, sessionId, 'ended')
+    await settleBotRequests(runtime, sessionId, 'ended', undefined, turnId)
   }
 }
 
@@ -159,7 +162,8 @@ async function settleBotRequests(
   runtime: OrcaRuntimeService,
   sessionId: string,
   why: 'ended' | 'failed' | 'failed-continues',
-  reason?: string
+  reason?: string,
+  turnId?: string
 ): Promise<void> {
   // Every chat's turn ends here; only a bot's can be on a request.
   if (!botOfSession(runtime.bots, sessionId)) {
@@ -176,10 +180,24 @@ async function settleBotRequests(
     .listDispatchIdsCreatedBySession(sessionId, 50)
     .some((id) => ACTIVE_DISPATCH.has(db.getDispatchContextById(id)?.status ?? ''))
   const messages = working ? [] : open.map((id) => db.getMessageById(id))
+  if (messages.length === 0) {
+    return
+  }
+  // A turn that closed on "accepted, queued" took them: the sender hears that once, and the answer
+  // or a later turn's failure still counts. Read only here, on a turn that left a request open.
+  const pending =
+    why === 'ended' && turnId
+      ? await readBotTurnInterimStatus(runtime, sessionId, turnId).catch(() => null)
+      : null
   await ensureSenderRecords(runtime, messages)
   for (const message of messages) {
     if (message) {
-      tellSender(runtime, db, message, 'unanswered', why, reason)
+      tellSender(
+        runtime,
+        db,
+        message,
+        pending ? { pending } : { outcome: 'unanswered', why, reason }
+      )
     }
   }
 }
@@ -208,7 +226,9 @@ export async function dropUnreadBotRequests(
     await ensureSenderRecords(runtime, dropped)
     for (const message of dropped) {
       // Read in the same write as its outcome and notice, so the drop is never half done.
-      tellSender(runtime, db, message, 'dropped', why, undefined, () => db.markAsRead([message.id]))
+      tellSender(runtime, db, message, { outcome: 'dropped', why }, () =>
+        db.markAsRead([message.id])
+      )
     }
   } catch (error) {
     // The change itself stands; only the senders go untold.
