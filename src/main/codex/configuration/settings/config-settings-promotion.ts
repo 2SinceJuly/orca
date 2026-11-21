@@ -7,7 +7,7 @@ import { writeTomlConfigAtomically } from '../toml/config-toml-atomic-write'
 import { parseWslUncPath } from '../../../../shared/file-access/wsl-paths'
 import { getOrcaManagedCodexHomePath, getSystemCodexHomePath } from '../homes/codex-home-paths'
 import { tableStructuredKey, upsertPromotedSettingsInContent } from './codex-config-settings-upsert'
-import { CODEX_DAEMON_OVERRIDE_MARKER } from '../shared-server/codex-daemon-socket-path-guard'
+import { CODEX_DAEMON_OVERRIDE_MARKER } from '../shared-server/codex-daemon-override-marker'
 import {
   PROMOTED_STRUCTURED_KEYS,
   readPromotedSettingValues,

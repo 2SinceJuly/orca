@@ -6,6 +6,7 @@ import {
 import {
   normalizeCodexRegistrationValue,
   parseCodexRegistrationTimestamp,
+  definesCodexRegistrationRootInline,
   readCodexRegistrationEntries,
   type CodexRegistrationEntry,
   type CodexRegistrationRoot
@@ -22,7 +23,7 @@ const MARKETPLACE_METADATA_FIELDS = ['last_updated', 'last_revision'] as const
 const PLUGIN_BASELINE_FIELDS = ['enabled'] as const
 
 export type CodexRegistrationPromotion =
-  | { kind: 'append'; key: string; block: string }
+  | { kind: 'append'; key: string; root: CodexRegistrationRoot; block: string }
   | { kind: 'field'; key: string; field: string; raw: string | null }
 
 export type CodexRegistrationBaseline = ReadonlyMap<string, ReadonlyMap<string, string>>
@@ -44,7 +45,12 @@ export function planCodexRegistrationPromotion(
     const systemEntry = systemEntries.get(entry.key)
     if (!systemEntry) {
       if (!mirroredRegistrations.has(entry.key)) {
-        appends[entry.root].push({ kind: 'append', key: entry.key, block: entry.block })
+        appends[entry.root].push({
+          kind: 'append',
+          key: entry.key,
+          root: entry.root,
+          block: entry.block
+        })
       }
       continue
     }
@@ -105,7 +111,11 @@ export function applyCodexRegistrationPromotions(
   }
   let result = joinPreservingTrailingNewline(lines, usesCrlf)
   for (const promotion of promotions) {
-    if (promotion.kind === 'append') {
+    // Appending a table under an inline root would make the whole config invalid TOML.
+    if (
+      promotion.kind === 'append' &&
+      !definesCodexRegistrationRootInline(content, promotion.root)
+    ) {
       result = appendRegistrationBlock(result, promotion.block, usesCrlf)
     }
   }

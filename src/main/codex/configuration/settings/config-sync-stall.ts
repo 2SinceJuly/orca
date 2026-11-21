@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { observeAgentStateFile } from '../codex-path-observation'
-import { isOnlyCodexDaemonOverride } from '../shared-server/codex-daemon-socket-path-guard'
+import { isOnlyCodexDaemonOverride } from '../shared-server/codex-daemon-override-marker'
 import { getOrcaManagedCodexHomePath, getSystemCodexHomePath } from '../homes/codex-home-paths'
 import {
   getCodexSettingsBaselinePath,

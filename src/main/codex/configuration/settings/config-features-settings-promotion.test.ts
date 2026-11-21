@@ -19,7 +19,7 @@ vi.mock('node:os', async (importOriginal) => ({
 
 import { syncSystemConfigIntoManagedCodexHome } from './codex-config-mirror'
 import { upsertTableSettingsInContent } from './codex-config-settings-upsert'
-import { CODEX_DAEMON_OVERRIDE_MARKER } from '../shared-server/codex-daemon-socket-path-guard'
+import { CODEX_DAEMON_OVERRIDE_MARKER } from '../shared-server/codex-daemon-override-marker'
 
 let tmpHome: string
 let userDataDir: string

@@ -36,6 +36,26 @@ export function getCodexRegistrationKey(root: CodexRegistrationRoot, name: strin
   return `${root}:${name}`
 }
 
+/** A preamble assignment such as `plugins = {}` closes the root to `[root.name]` tables. */
+export function definesCodexRegistrationRootInline(
+  config: string,
+  root: CodexRegistrationRoot
+): boolean {
+  let state = createTomlLineScanState()
+  for (const line of config.split('\n')) {
+    const structural = isTomlStructuralLine(state)
+    state = updateTomlLineScanState(state, line)
+    if (structural && getTomlTableHeader(line)) {
+      return false
+    }
+    const parsed = structural ? parseTomlKeyPath(line) : null
+    if (parsed && line[parsed.end] === '=' && parsed.segments[0] === root) {
+      return true
+    }
+  }
+  return false
+}
+
 export function readCodexRegistrationEntries(config: string): Map<string, CodexRegistrationEntry> {
   const lines = config.split('\n')
   const headers = scanTomlTableHeaders(lines)

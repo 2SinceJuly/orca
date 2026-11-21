@@ -7,7 +7,7 @@ import {
 } from './config-toml-line-scan'
 import { parseTomlKeyPath, parseTomlTableHeaderPath } from './config-toml-key-path'
 import { tableStructuredKey } from '../settings/codex-config-settings-upsert'
-import { stripCodexDaemonOverride } from '../shared-server/codex-daemon-socket-path-guard'
+import { stripCodexDaemonOverride } from '../shared-server/codex-daemon-override-marker'
 
 // Allowlist settings written back into the user's canonical Codex config.
 export const PROMOTED_CODEX_SETTING_KEYS = [

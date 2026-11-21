@@ -15,7 +15,9 @@ import {
 import { homedir, tmpdir } from 'node:os'
 import type * as Os from 'node:os'
 import { join } from 'node:path'
+import { parse as parseToml } from 'smol-toml'
 import type * as TomlAtomicWrite from '../toml/config-toml-atomic-write'
+import type * as AtomicFilePublication from '../../../filesystem/atomic-file-publication'
 import type * as WslPaths from '../../../../shared/file-access/wsl-paths'
 
 // Bypass platform-specific socket paths so asserted config bytes stay host-independent.
@@ -27,10 +29,12 @@ vi.mock('../shared-server/codex-daemon-socket-path-guard', async (importOriginal
 const { homedirMock, promotionTestState } = vi.hoisted(() => {
   const state: {
     failAtomicWrite: boolean
+    failBaselineWrite: boolean
     wslSystemConfigPath: string | null
     daemonGuard: boolean
   } = {
     failAtomicWrite: false,
+    failBaselineWrite: false,
     wslSystemConfigPath: null,
     daemonGuard: false
   }
@@ -53,6 +57,19 @@ vi.mock('node:os', async (importOriginal) => {
   return {
     ...actual,
     homedir: homedirMock
+  }
+})
+
+vi.mock('../../../filesystem/atomic-file-publication', async (importOriginal) => {
+  const actual = await importOriginal<typeof AtomicFilePublication>()
+  return {
+    ...actual,
+    writeFileAtomically: (...args: Parameters<typeof actual.writeFileAtomically>) => {
+      if (promotionTestState.failBaselineWrite && args[0].endsWith('baseline.json')) {
+        throw new Error('injected baseline write failure')
+      }
+      return actual.writeFileAtomically(...args)
+    }
   }
 })
 
@@ -84,6 +101,7 @@ beforeEach(() => {
   promotionTestState.failAtomicWrite = false
   promotionTestState.wslSystemConfigPath = null
   promotionTestState.daemonGuard = false
+  promotionTestState.failBaselineWrite = false
   if (homedir() !== tmpHome) {
     throw new Error('node:os homedir mock is not active; refusing to touch the real ~/.codex')
   }
@@ -233,6 +251,23 @@ describe('codex settings write-back promotion', () => {
     }
   )
 
+  it('keeps a WSL managed config valid when the canonical config closes plugins inline', () => {
+    writeSystemConfig('model = "gpt-5"\n')
+    promotionTestState.wslSystemConfigPath = systemConfigPath()
+    syncSystemConfigIntoManagedCodexHome()
+    writeFileSync(
+      runtimeConfigPath(),
+      `${readRuntimeConfig()}\n[plugins."local@y"]\nenabled = true\n`,
+      'utf-8'
+    )
+    syncSystemConfigIntoManagedCodexHome()
+
+    writeSystemConfig('model = "gpt-5"\nplugins = {}\n')
+    syncSystemConfigIntoManagedCodexHome()
+
+    expect(() => parseToml(readRuntimeConfig())).not.toThrow()
+  })
+
   it('keeps a WSL pane daemon preference while the daemon override hides it', () => {
     const original = 'model = "gpt-5"\n'
     writeSystemConfig(original)
@@ -246,6 +281,29 @@ describe('codex settings write-back promotion', () => {
     )
 
     syncSystemConfigIntoManagedCodexHome()
+    syncSystemConfigIntoManagedCodexHome()
+    promotionTestState.daemonGuard = false
+    syncSystemConfigIntoManagedCodexHome()
+
+    expect(readSystemConfig()).toBe(original)
+    expect(readRuntimeConfig()).toMatch(/^daemon_auto_start = true$/m)
+  })
+
+  it('keeps a WSL pane daemon preference when the baseline write fails after the override', () => {
+    const original = 'model = "gpt-5"\n'
+    writeSystemConfig(original)
+    promotionTestState.wslSystemConfigPath = systemConfigPath()
+    promotionTestState.daemonGuard = true
+    syncSystemConfigIntoManagedCodexHome()
+    writeFileSync(
+      runtimeConfigPath(),
+      `${readRuntimeConfig().replace(/^daemon_auto_start = .*$/m, 'daemon_auto_start = true')}`,
+      'utf-8'
+    )
+
+    promotionTestState.failBaselineWrite = true
+    syncSystemConfigIntoManagedCodexHome()
+    promotionTestState.failBaselineWrite = false
     syncSystemConfigIntoManagedCodexHome()
     promotionTestState.daemonGuard = false
     syncSystemConfigIntoManagedCodexHome()

@@ -1,4 +1,4 @@
-import { stripCodexDaemonOverride } from '../shared-server/codex-daemon-socket-path-guard'
+import { stripCodexDaemonOverride } from '../shared-server/codex-daemon-override-marker'
 import { stripCodexSharedSqliteHome } from './config-toml-shared-sqlite-home'
 import {
   createTomlLineScanState,

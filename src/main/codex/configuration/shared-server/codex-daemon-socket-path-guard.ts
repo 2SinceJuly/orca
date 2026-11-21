@@ -5,20 +5,20 @@ import {
 } from '../../../filesystem/file-content-observation'
 import { parseWslUncPath } from '../../../../shared/file-access/wsl-paths'
 import { unixSocketPathFits } from '../../../../shared/network/unix-socket-path-limit'
-import { upsertTableSettingsInContent } from '../settings/codex-config-settings-upsert'
 import {
-  createTomlLineScanState,
-  getTomlTableHeader,
-  isTomlStructuralLine,
-  joinPreservingTrailingNewline,
-  updateTomlLineScanState
-} from '../toml/config-toml-line-scan'
-import { parseTomlTableHeaderPath } from '../toml/config-toml-key-path'
+  tableStructuredKey,
+  upsertTableSettingsInContent
+} from '../settings/codex-config-settings-upsert'
+import { readPromotedSettingValuesFromContent } from '../toml/config-toml-promoted-setting-values'
+import {
+  CODEX_DAEMON_OVERRIDE_MARKER,
+  formatCodexDaemonOverrideRaw,
+  stripCodexDaemonOverride
+} from './codex-daemon-override-marker'
 
 // Codex >=0.157 auto-starts a daemon; long managed homes exceed its socket's sun_path limit.
 const DAEMON_SOCKET_SEGMENTS = ['app-server-control', 'app-server-control.sock']
-export const CODEX_DAEMON_OVERRIDE_MARKER = '# orca: CODEX_HOME too long for the daemon socket'
-const DAEMON_OVERRIDE_RAW = `false ${CODEX_DAEMON_OVERRIDE_MARKER}`
+const DAEMON_KEY = tableStructuredKey('features', 'daemon_auto_start')
 
 export function codexDaemonSocketPath(homePath: string, platform = process.platform): string {
   const wsl = parseWslUncPath(homePath)
@@ -59,10 +59,17 @@ export function applyCodexDaemonOverride(
   if (!socketPathExceedsLimit) {
     return stripCodexDaemonOverride(config)
   }
+  // Reading through the strip yields what an earlier override replaced, so reapplying keeps it.
+  const replaced = readPromotedSettingValuesFromContent(config).get(DAEMON_KEY)
   const guarded = upsertTableSettingsInContent(
     config,
     'features',
-    new Map([['daemon_auto_start', DAEMON_OVERRIDE_RAW]])
+    new Map([
+      [
+        'daemon_auto_start',
+        formatCodexDaemonOverrideRaw(replaced && !replaced.multiline ? replaced.raw : null)
+      ]
+    ])
   )
   if (
     !guarded.includes(CODEX_DAEMON_OVERRIDE_MARKER) &&
@@ -76,60 +83,4 @@ export function applyCodexDaemonOverride(
     )
   }
   return guarded
-}
-
-export function isOnlyCodexDaemonOverride(config: string): boolean {
-  return (
-    config.includes(CODEX_DAEMON_OVERRIDE_MARKER) && stripCodexDaemonOverride(config).trim() === ''
-  )
-}
-
-/** Remove marked lines and emptied features tables so the override never reaches the real ~/.codex. */
-export function stripCodexDaemonOverride(config: string): string {
-  if (!config.includes(CODEX_DAEMON_OVERRIDE_MARKER)) {
-    return config
-  }
-  const usesCrlf = config.includes('\r\n')
-  const lines = config.split('\n')
-  const kept: string[] = []
-  let featuresHeaderIndex = -1
-  let removedFromFeatures = false
-  const dropEmptyFeaturesTable = (): void => {
-    // Why: copying the kept lines at every header made large configs quadratic.
-    if (featuresHeaderIndex === -1 || !removedFromFeatures) {
-      return
-    }
-    if (kept.slice(featuresHeaderIndex + 1).every((l) => l.trim() === '')) {
-      kept.length = featuresHeaderIndex
-      while (kept.at(-1)?.trim() === '') {
-        kept.pop()
-      }
-      if (kept.length > 0) {
-        kept.push(usesCrlf ? '\r' : '')
-      }
-    }
-  }
-  let scan = createTomlLineScanState()
-  for (const line of lines) {
-    const structural = isTomlStructuralLine(scan)
-    scan = updateTomlLineScanState(scan, line)
-    if (structural && line.trimEnd().endsWith(CODEX_DAEMON_OVERRIDE_MARKER)) {
-      removedFromFeatures ||= featuresHeaderIndex !== -1
-      continue
-    }
-    const header = structural ? getTomlTableHeader(line) : null
-    if (header) {
-      dropEmptyFeaturesTable()
-      const table = parseTomlTableHeaderPath(header)
-      const isFeatures = table?.isArray === false && table.segments.join('.') === 'features'
-      featuresHeaderIndex = isFeatures ? kept.length : -1
-      removedFromFeatures = false
-    }
-    kept.push(line)
-  }
-  dropEmptyFeaturesTable()
-  while (kept.at(-1)?.trim() === '') {
-    kept.pop()
-  }
-  return kept.length === 0 ? '' : joinPreservingTrailingNewline(kept, usesCrlf)
 }

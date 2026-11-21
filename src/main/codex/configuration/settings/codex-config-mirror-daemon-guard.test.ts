@@ -21,7 +21,7 @@ import {
   syncSystemConfigIntoLegacySharedCodexHome,
   syncSystemConfigIntoManagedCodexHome
 } from './codex-config-mirror'
-import { CODEX_DAEMON_OVERRIDE_MARKER } from '../shared-server/codex-daemon-socket-path-guard'
+import { CODEX_DAEMON_OVERRIDE_MARKER } from '../shared-server/codex-daemon-override-marker'
 
 let root: string
 let runtimeHomePath: string
