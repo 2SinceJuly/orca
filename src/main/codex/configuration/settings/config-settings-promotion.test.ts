@@ -268,6 +268,25 @@ describe('codex settings write-back promotion', () => {
     expect(() => parseToml(readRuntimeConfig())).not.toThrow()
   })
 
+  it('keeps a WSL pane setting when the canonical line only gains a comment', () => {
+    writeSystemConfig('model = "gpt-5"\n')
+    promotionTestState.wslSystemConfigPath = systemConfigPath()
+    syncSystemConfigIntoManagedCodexHome()
+    writeFileSync(
+      runtimeConfigPath(),
+      readRuntimeConfig().replace('model = "gpt-5"', 'model = "o4"'),
+      'utf-8'
+    )
+    syncSystemConfigIntoManagedCodexHome()
+
+    writeSystemConfig('model = "gpt-5" # pinned\n')
+    syncSystemConfigIntoManagedCodexHome()
+    syncSystemConfigIntoManagedCodexHome()
+
+    expect(readRuntimeConfig()).toMatch(/^model = "o4"$/m)
+    expect(readSystemConfig()).toBe('model = "gpt-5" # pinned\n')
+  })
+
   it('keeps a WSL pane plugin beside a dotted-key plugin in the canonical config', () => {
     writeSystemConfig('model = "gpt-5"\nplugins."existing@m".enabled = true\n')
     promotionTestState.wslSystemConfigPath = systemConfigPath()

@@ -20,7 +20,10 @@ import {
   type CodexSettingsBaseline,
   type CodexSettingsConflict
 } from './config-settings-baseline'
-import { resolveUntrackedCodexSetting } from './config-settings-conflict-resolution'
+import {
+  resolveUntrackedCodexSetting,
+  sameCanonicalValue
+} from './config-settings-conflict-resolution'
 import { extractOrdinaryCodexSettings } from '../toml/config-toml-runtime-owned-sections'
 import {
   applyCodexRegistrationPromotions,
@@ -283,7 +286,7 @@ function collectPromotionChanges(context: PromotionCollectionContext): void {
     const existingConflict = context.baseline.conflicts.get(key)
     if (existingConflict && runtimeRaw === null && context.maskedRuntimeKeys.has(key)) {
       // The override hides the kept value, not a user deletion; a canonical edit still wins.
-      if (systemRaw === existingConflict.system) {
+      if (sameCanonicalValue(systemRaw, existingConflict.system)) {
         context.conflicts.set(key, existingConflict)
         context.runtimeValuesToPreserve.set(key, existingConflict.runtime)
       }

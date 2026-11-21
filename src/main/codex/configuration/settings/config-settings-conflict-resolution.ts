@@ -1,4 +1,5 @@
 import type { CodexSettingsConflict } from './config-settings-baseline'
+import { normalizeCodexRegistrationValue } from '../toml/config-toml-plugin-registration-tables'
 
 export type CodexSettingsConflictResolution =
   | { action: 'aligned' }
@@ -19,7 +20,7 @@ export function resolveUntrackedCodexSetting(
   }
 
   const runtimeChanged = runtime !== existingConflict.runtime
-  const systemChanged = system !== existingConflict.system
+  const systemChanged = !sameCanonicalValue(system, existingConflict.system)
   if (runtimeChanged && !systemChanged) {
     // Runtime deletions do not propagate to the canonical config.
     return runtime === null ? { action: 'use-system' } : { action: 'promote-runtime', raw: runtime }
@@ -32,4 +33,12 @@ export function resolveUntrackedCodexSetting(
     return { action: 'preserve', conflict: { runtime, system } }
   }
   return { action: 'preserve', conflict: existingConflict }
+}
+
+/** A comment or quoting change to the canonical line is not an edit that should discard a kept value. */
+export function sameCanonicalValue(left: string | null, right: string | null): boolean {
+  if (left === null || right === null) {
+    return left === right
+  }
+  return normalizeCodexRegistrationValue(left) === normalizeCodexRegistrationValue(right)
 }

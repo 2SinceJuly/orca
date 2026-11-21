@@ -36,12 +36,12 @@ export function getCodexRegistrationKey(root: CodexRegistrationRoot, name: strin
   return `${root}:${name}`
 }
 
-/** True when `[root.name]` would redefine a key: `root = {}` inline, or `root.name` set by a dotted key. */
-export function definesCodexRegistrationOutsideTables(
-  config: string,
-  root: CodexRegistrationRoot,
-  name: string
-): boolean {
+/**
+ * Registration keys an appended `[root.name]` table would redefine: `root:` for a root assigned
+ * inline (`plugins = {}`), or the registration key for `root.name` set by a dotted key or value.
+ */
+export function readCodexRegistrationsDefinedOutsideTables(config: string): Set<string> {
+  const defined = new Set<string>()
   let state = createTomlLineScanState()
   let table: readonly string[] = []
   for (const [index, rawLine] of config.split('\n').entries()) {
@@ -61,12 +61,12 @@ export function definesCodexRegistrationOutsideTables(
     if (!parsed || line[parsed.end] !== '=') {
       continue
     }
-    const path = [...table, ...parsed.segments]
-    if (path[0] === root && (path.length === 1 || path[1] === name)) {
-      return true
+    const [root, name] = [...table, ...parsed.segments]
+    if (isCodexRegistrationRoot(root)) {
+      defined.add(name === undefined ? `${root}:` : getCodexRegistrationKey(root, name))
     }
   }
-  return false
+  return defined
 }
 
 export function readCodexRegistrationEntries(config: string): Map<string, CodexRegistrationEntry> {

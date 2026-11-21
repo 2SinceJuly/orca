@@ -6,7 +6,7 @@ import {
 import {
   normalizeCodexRegistrationValue,
   parseCodexRegistrationTimestamp,
-  definesCodexRegistrationOutsideTables,
+  readCodexRegistrationsDefinedOutsideTables,
   readCodexRegistrationEntries,
   type CodexRegistrationEntry,
   type CodexRegistrationRoot
@@ -23,7 +23,7 @@ const MARKETPLACE_METADATA_FIELDS = ['last_updated', 'last_revision'] as const
 const PLUGIN_BASELINE_FIELDS = ['enabled'] as const
 
 export type CodexRegistrationPromotion =
-  | { kind: 'append'; key: string; root: CodexRegistrationRoot; name: string; block: string }
+  | { kind: 'append'; key: string; root: CodexRegistrationRoot; block: string }
   | { kind: 'field'; key: string; field: string; raw: string | null }
 
 export type CodexRegistrationBaseline = ReadonlyMap<string, ReadonlyMap<string, string>>
@@ -49,7 +49,6 @@ export function planCodexRegistrationPromotion(
           kind: 'append',
           key: entry.key,
           root: entry.root,
-          name: entry.name,
           block: entry.block
         })
       }
@@ -111,11 +110,15 @@ export function applyCodexRegistrationPromotions(
     lines.splice(edit.index, edit.deleteCount, ...edit.inserts)
   }
   let result = joinPreservingTrailingNewline(lines, usesCrlf)
+  const definedOutsideTables = promotions.some((promotion) => promotion.kind === 'append')
+    ? readCodexRegistrationsDefinedOutsideTables(content)
+    : new Set<string>()
   for (const promotion of promotions) {
     // A table redefining an inline or dotted-key registration would make the whole config invalid TOML.
     if (
       promotion.kind === 'append' &&
-      !definesCodexRegistrationOutsideTables(content, promotion.root, promotion.name)
+      !definedOutsideTables.has(`${promotion.root}:`) &&
+      !definedOutsideTables.has(promotion.key)
     ) {
       result = appendRegistrationBlock(result, promotion.block, usesCrlf)
     }
