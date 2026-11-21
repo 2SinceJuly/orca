@@ -36,20 +36,33 @@ export function getCodexRegistrationKey(root: CodexRegistrationRoot, name: strin
   return `${root}:${name}`
 }
 
-/** A preamble assignment such as `plugins = {}` closes the root to `[root.name]` tables. */
-export function definesCodexRegistrationRootInline(
+/** True when `[root.name]` would redefine a key: `root = {}` inline, or `root.name` set by a dotted key. */
+export function definesCodexRegistrationOutsideTables(
   config: string,
-  root: CodexRegistrationRoot
+  root: CodexRegistrationRoot,
+  name: string
 ): boolean {
   let state = createTomlLineScanState()
-  for (const line of config.split('\n')) {
+  let table: readonly string[] = []
+  for (const [index, rawLine] of config.split('\n').entries()) {
+    const line = index === 0 ? rawLine.replace(/^\uFEFF/, '') : rawLine
     const structural = isTomlStructuralLine(state)
     state = updateTomlLineScanState(state, line)
-    if (structural && getTomlTableHeader(line)) {
-      return false
+    if (!structural) {
+      continue
     }
-    const parsed = structural ? parseTomlKeyPath(line) : null
-    if (parsed && line[parsed.end] === '=' && parsed.segments[0] === root) {
+    const header = getTomlTableHeader(line)
+    if (header) {
+      const parsed = parseTomlTableHeaderPath(header)
+      table = parsed && !parsed.isArray ? parsed.segments : []
+      continue
+    }
+    const parsed = parseTomlKeyPath(line)
+    if (!parsed || line[parsed.end] !== '=') {
+      continue
+    }
+    const path = [...table, ...parsed.segments]
+    if (path[0] === root && (path.length === 1 || path[1] === name)) {
       return true
     }
   }

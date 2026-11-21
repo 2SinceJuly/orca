@@ -268,6 +268,24 @@ describe('codex settings write-back promotion', () => {
     expect(() => parseToml(readRuntimeConfig())).not.toThrow()
   })
 
+  it('keeps a WSL pane plugin beside a dotted-key plugin in the canonical config', () => {
+    writeSystemConfig('model = "gpt-5"\nplugins."existing@m".enabled = true\n')
+    promotionTestState.wslSystemConfigPath = systemConfigPath()
+    syncSystemConfigIntoManagedCodexHome()
+    writeFileSync(
+      runtimeConfigPath(),
+      `${readRuntimeConfig()}\n[plugins."local@y"]\nenabled = true\n`,
+      'utf-8'
+    )
+
+    syncSystemConfigIntoManagedCodexHome()
+    syncSystemConfigIntoManagedCodexHome()
+
+    expect(parseToml(readRuntimeConfig())).toMatchObject({
+      plugins: { 'local@y': { enabled: true }, 'existing@m': { enabled: true } }
+    })
+  })
+
   it('keeps a WSL pane daemon preference while the daemon override hides it', () => {
     const original = 'model = "gpt-5"\n'
     writeSystemConfig(original)
