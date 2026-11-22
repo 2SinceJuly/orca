@@ -81,6 +81,21 @@ describe('buildBotPreamble', () => {
     expect(preamble).toContain('say once in this chat that it is ready to merge, with its link')
   })
 
+  it('sets a plain reminder as a wait with only a deadline', () => {
+    const preamble = buildBotPreamble({
+      name: 'Reviewer',
+      agent: 'claude',
+      soul: null,
+      memory: null
+    })
+    expect(preamble).toContain(
+      'A plain reminder ("in 10 minutes", "at 3pm") is a wait with `--by` and no `--on`'
+    )
+    // The refusal is for a request no event and no time fits, so it never turns a timer away.
+    expect(preamble).toContain('If no listed event, schedule or time fits the request, say so')
+    expect(preamble).not.toContain('If nothing it lists fits the request')
+  })
+
   it('quotes memory as notes, never instructions', () => {
     const preamble = buildBotPreamble({
       name: 'Reviewer',
