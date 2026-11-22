@@ -25,7 +25,8 @@ import {
   GenerateField,
   GenerateFaceThumb,
   GenerateFaceTile,
-  useGenerateFace
+  useGenerateFace,
+  type GenerateFaceDraft
 } from './AvatarGenerateFace'
 import { BotPictureRowFold } from './BotPictureRowFold'
 import { readAvatarCapability } from './avatar-generation-capability-store'
@@ -148,6 +149,7 @@ export function BotPicturePicker({
   uploadLink = false,
   color = null,
   onColorChange,
+  descriptionDraft,
   intake: sharedIntake
 }: {
   value: BotPictureValue
@@ -162,6 +164,7 @@ export function BotPicturePicker({
   color?: string | null
   /** Shows the color swatches under a mascot. */
   onColorChange?: (color: string | null) => void
+  descriptionDraft?: GenerateFaceDraft
   /** An intake that outlives this picker (New bot's picture button), so a decode survives the popover
    *  closing and one order holds across both surfaces; its owner places the picture. */
   intake?: BotAvatarIntake
@@ -229,7 +232,8 @@ export function BotPicturePicker({
     custom?.src ? { src: custom.src, description: custom.description } : null,
     () => {
       generateTurn.current = intake.claim()
-    }
+    },
+    descriptionDraft
   )
   const faces: BotPictureFace[] = order.map((key) =>
     key === GENERATE_FACE
