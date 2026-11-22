@@ -53,7 +53,7 @@ export function createQuietWslHostStreamOpener(
 ): WslHostAgentAwakeDeps['openStream'] {
   return async (environmentId, handlers) => {
     const connection = await transport.resolve(environmentId)
-    if (!connection || transport.isManuallyDisconnected(environmentId)) {
+    if (handlers.signal.aborted || !connection || transport.isManuallyDisconnected(environmentId)) {
       return 'unsupported'
     }
     let ended = false
@@ -85,7 +85,7 @@ export function createQuietWslHostStreamOpener(
         onError: (error) => onEvent({ type: 'error', code: error.code, message: error.message }),
         onClose: end
       },
-      { clientCapabilities: WSL_HOST_AGENT_AWAKE_CLIENT_CAPABILITIES }
+      { clientCapabilities: WSL_HOST_AGENT_AWAKE_CLIENT_CAPABILITIES, signal: handlers.signal }
     )
     return {
       close: () => {

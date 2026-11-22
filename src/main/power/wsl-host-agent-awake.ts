@@ -17,7 +17,7 @@ export type WslHostAgentAwakeDeps = {
    *  A rejection is a failure to retry, never a verdict on the host. */
   openStream: (
     environmentId: string,
-    handlers: { onFrame: (frame: unknown) => void; onEnd: () => void }
+    handlers: { onFrame: (frame: unknown) => void; onEnd: () => void; signal: AbortSignal }
   ) => Promise<HostStream | 'unsupported'>
   report: (environmentId: string, statuses: WslHostAwakeStatus[]) => void
   now: () => number
@@ -28,6 +28,7 @@ export type WslHostAgentAwakeDeps = {
 type PaneReceipt = { hostObservedAt: number; receivedAt: number | null }
 
 type HostWatch = {
+  opening: AbortController | null
   stream: HostStream | null
   /** Working panes per host worktree, as the current stream last described them. */
   worktrees: Map<string, Map<string, PaneReceipt>>
@@ -109,6 +110,7 @@ export class WslHostAgentAwake {
       }
       if (!this.watches.has(environmentId)) {
         const watch: HostWatch = {
+          opening: null,
           stream: null,
           worktrees: new Map(),
           retryTimer: null,
@@ -121,6 +123,8 @@ export class WslHostAgentAwake {
   }
 
   private open(environmentId: string, watch: HostWatch): void {
+    const controller = new AbortController()
+    watch.opening = controller
     let ended = false
     const isCurrent = (): boolean => !ended && this.watches.get(environmentId) === watch
     const end = (): void => {
@@ -128,6 +132,8 @@ export class WslHostAgentAwake {
         return
       }
       ended = true
+      watch.opening?.abort()
+      watch.opening = null
       watch.stream?.close()
       watch.stream = null
       // Why: a dropped stream proves nothing is known any more; stop counting now, not at expiry.
@@ -137,6 +143,7 @@ export class WslHostAgentAwake {
     }
     this.deps
       .openStream(environmentId, {
+        signal: controller.signal,
         onFrame: (frame) => {
           if (!isCurrent()) {
             return
@@ -152,13 +159,18 @@ export class WslHostAgentAwake {
       })
       .then(
         (stream) => {
+          if (!isCurrent()) {
+            if (stream !== 'unsupported') {
+              stream.close()
+            }
+            return
+          }
+          watch.opening = null
           if (stream === 'unsupported') {
             // Stays unwatched until the host reconnects, possibly as a newer server.
             ended = true
-          } else if (isCurrent()) {
-            watch.stream = stream
           } else {
-            stream.close()
+            watch.stream = stream
           }
         },
         () => end()
@@ -186,6 +198,7 @@ export class WslHostAgentAwake {
     if (watch.retryTimer) {
       clearTimeout(watch.retryTimer)
     }
+    watch.opening?.abort()
     watch.stream?.close()
     this.reported.delete(environmentId)
     this.deps.report(environmentId, [])
