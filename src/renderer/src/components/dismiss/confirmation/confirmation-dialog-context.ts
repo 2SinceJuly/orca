@@ -26,6 +26,7 @@ export type ConfirmationDialogOptions = {
   cancelLabel?: string
   confirmVariant?: 'default' | 'destructive'
   surface?: 'security'
+  scrollable?: boolean
   /** A notice, not a question: only the confirm button shows, and it settles true. */
   acknowledgeOnly?: boolean
   /** Focus starts on Cancel (or the first field); `confirm` starts on the verb instead. */

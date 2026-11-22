@@ -63,22 +63,28 @@ function Stage({
   grant,
   trigger
 }: {
-  width: number
+  width?: number
   grant: BotAccessConfirm
   trigger?: 'add' | 'review'
 }): React.JSX.Element {
   const [box, setBox] = useState<HTMLElement | null>(null)
+  const confirmation = (
+    <ConfirmationDialogProvider>
+      {trigger ? <Trigger grant={grant} review={trigger === 'review'} /> : <Open grant={grant} />}
+    </ConfirmationDialogProvider>
+  )
+  if (width === undefined) {
+    return confirmation
+  }
   return (
-    <div ref={setBox} className="relative h-[340px] translate-x-0 bg-background" style={{ width }}>
+    <div
+      ref={setBox}
+      className="relative translate-x-0 bg-background"
+      style={{ width, height: width === 280 ? 440 : 340 }}
+    >
       {box ? (
         <PortalContainerContext.Provider value={box}>
-          <ConfirmationDialogProvider>
-            {trigger ? (
-              <Trigger grant={grant} review={trigger === 'review'} />
-            ) : (
-              <Open grant={grant} />
-            )}
-          </ConfirmationDialogProvider>
+          {confirmation}
         </PortalContainerContext.Provider>
       ) : null}
     </div>
@@ -86,7 +92,7 @@ function Stage({
 }
 
 function accessFixture(options: {
-  width: 420 | 360 | 280
+  width?: 420 | 360 | 280
   people: Person[]
   bot?: Partial<Bot>
   connector?: BotAccessConnector
@@ -95,7 +101,7 @@ function accessFixture(options: {
   trigger?: 'add' | 'review'
   language?: 'en' | 'zh-Hant'
 }) {
-  const { language } = options
+  const { language, width } = options
   const connector = options.connector ?? 'slack'
   const subject = { ...bot, ...options.bot }
   const grant: BotAccessConfirm = {
@@ -106,7 +112,7 @@ function accessFixture(options: {
   }
   return defineFixture({
     // The frame's own p-4 padding sits around the stage.
-    width: options.width + 32,
+    width: width === undefined ? undefined : width + 32,
     setup: () => {
       // The confirm reads the bot as listed now, so the host lists this scenario's bot.
       stub({ linearLinked: false, composio: false, bots: [subject] })
@@ -122,7 +128,7 @@ function accessFixture(options: {
         )
       }
     },
-    render: () => <Stage width={options.width} grant={grant} trigger={options.trigger} />,
+    render: () => <Stage width={width} grant={grant} trigger={options.trigger} />,
     interact: language
       ? async (frame) => {
           await setRendererUiLanguage(language)
@@ -169,13 +175,19 @@ export const longName360 = accessFixture({ width: 360, ...scenarios.LongName })
 const longSlackReview = {
   width: 280,
   ...scenarios.OneAskSlack,
-  bot: { name: 'ProjectOperationsCoordinator' },
+  bot: { name: 'ProjectOperationsCoordinatorNorthAmerica' },
   trigger: 'review'
 } as const
 export const longSlackReviewEnglish280 = accessFixture({ ...longSlackReview, language: 'en' })
 export const longSlackReviewTraditionalChinese280 = accessFixture({
   ...longSlackReview,
   language: 'zh-Hant'
+})
+export const longSlackReviewShortViewport = accessFixture({
+  ...longSlackReview,
+  width: undefined,
+  bot: { name: 'ProjectOperationsCoordinator' },
+  language: 'en'
 })
 export const unknownPermission420 = accessFixture({ width: 420, ...scenarios.UnknownPermission })
 export const unknownPermission360 = accessFixture({ width: 360, ...scenarios.UnknownPermission })

@@ -230,6 +230,7 @@ export function useConfirmBotAccess(): (
         : grant.connector
       return confirm({
         surface: 'security',
+        scrollable: true,
         // The first name, so a long name can't wrap the title; the full one is in the line under it.
         title: firstName
           ? translate('bots.access.titleOne', BOT_ACCESS_COPY.titleOne, {

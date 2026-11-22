@@ -81,6 +81,7 @@ export function ConfirmationDialogProvider({
   // Why: Radix keeps dialog content mounted while closing; keep labels stable without a post-render Effect.
   const displayedRequest = activeRequest ?? lastDisplayedRequestRef.current
   const options = displayedRequest?.options
+  const scrollable = options?.scrollable ?? false
   // Why Cancel: the "Don't ask again" checkbox now comes first, and Enter must not confirm by accident.
   const initialFocus = options?.initialFocus ?? (options?.fields ? undefined : 'cancel')
   const activeRequestId = activeRequest?.id
@@ -94,8 +95,8 @@ export function ConfirmationDialogProvider({
         : initialFocus === 'cancel'
           ? (cancelButtonRef.current ?? confirmButtonRef.current)
           : firstInputRef.current
-    target?.focus()
-  }, [activeRequestId, initialFocus])
+    target?.focus({ preventScroll: scrollable })
+  }, [activeRequestId, initialFocus, scrollable])
   const openingGesture = displayedRequest?.options.ignoresOpeningGesture
   const guarded = openingGesture === true || openingGesture === 'buttons'
   // Why: the gesture that opened the prompt may still be repeating or clicking, and either answer can stick.
@@ -184,6 +185,7 @@ export function ConfirmationDialogProvider({
         <DialogContent
           size="confirm"
           surface={options?.surface}
+          scrollable={scrollable}
           initialFocus={initialFocus === 'cancel' ? 'cancel' : undefined}
           onInteractOutside={(event) => {
             if (openingGesture === true) {
@@ -193,7 +195,12 @@ export function ConfirmationDialogProvider({
           onOpenAutoFocus={(event) => {
             if (activeRequest?.options.initialFocus === 'confirm') {
               event.preventDefault()
-              confirmButtonRef.current?.focus()
+              confirmButtonRef.current?.focus({ preventScroll: scrollable })
+            } else if (scrollable && initialFocus === 'cancel') {
+              event.preventDefault()
+              // Keep the title in view while the safe action receives focus.
+              const target = cancelButtonRef.current ?? confirmButtonRef.current
+              target?.focus({ preventScroll: true })
             }
           }}
         >
