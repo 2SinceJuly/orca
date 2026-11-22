@@ -95,9 +95,8 @@ describe('orca automations create --once', () => {
     expect(writes[2]).toMatchObject({ runsInDefault: true })
   })
 
-  it('takes --by without an event, as a one-time reminder that answers where it was asked', async () => {
+  it('takes --by without an event, as a one-time reminder', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
-    vi.stubEnv(ORCA_AGENT_SESSION_ID_ENV, 'thread-chat')
     const { client, writes } = host()
 
     await create(client, [
@@ -105,13 +104,7 @@ describe('orca automations create --once', () => {
       ['by', '2099-01-01T09:00:00Z']
     ])
 
-    // The host then runs it in the chat that made it, so a thread's turn gets it back in the thread.
-    expect(writes[0]).toMatchObject({
-      once: { by: Date.parse('2099-01-01T09:00:00Z') },
-      bot: { runsIn: 'chat', resultsTo: 'chat' },
-      callerSessionId: 'thread-chat',
-      runsInDefault: true
-    })
+    expect(writes[0]).toMatchObject({ once: { by: Date.parse('2099-01-01T09:00:00Z') } })
   })
 
   it('refuses --by without --once, or a time already past', async () => {

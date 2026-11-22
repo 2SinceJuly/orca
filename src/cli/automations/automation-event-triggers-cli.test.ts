@@ -163,7 +163,7 @@ describe('orca automations --on', () => {
     await expect(
       run('automations create', client, [...BOT_CREATE, ['on', 'github.ci_failed']])
     ).rejects.toThrow(
-      'Ranger has no GitHub connector, so github.ci_failed would never start it. It can start on Slack events or on a schedule'
+      'Ranger has no GitHub connector, so github.ci_failed would never start it. It can start on Slack events, on a schedule, or once at a time (`--once --by`)'
     )
     expect(writes).toEqual([])
   })

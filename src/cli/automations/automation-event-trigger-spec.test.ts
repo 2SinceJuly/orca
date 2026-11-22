@@ -229,8 +229,8 @@ describe('--on trigger specs', () => {
 
   it('says a time can start one too, so a bot never refuses a short reminder', () => {
     const options = formatAutomationTriggerOptions(undefined, { name: 'Scout' })
-    expect(options).toContain('`--once --by <ISO time>` alone for a one-time reminder')
-    expect(options).not.toContain('Nothing else can start an automation.')
+    expect(options).toMatch(/`--once --by <ISO time>`[^\n]*one-time reminder/)
+    expect(options).not.toMatch(/Nothing else can start/)
   })
 
   it("offers newer GitHub events and webhooks according to the bot's cloud capabilities", () => {

@@ -82,6 +82,10 @@ function formatBotAgent(target: NonNullable<Automation['bot']>): string {
 function formatWhen(automation: Automation): string {
   const events = (automation.on ?? []).map(describeAutomationEventTrigger)
   if (automation.once) {
+    // A reminder: a deadline and no event, so only the time starts it.
+    if (events.length === 0 && automation.once.by !== undefined) {
+      return `runs once at ${new Date(automation.once.by).toLocaleString()}`
+    }
     return `${formatOnce(automation)}${events.length > 0 ? `: ${events.join('; ')}` : ''}`
   }
   if (!hasAutomationSchedule(automation)) {

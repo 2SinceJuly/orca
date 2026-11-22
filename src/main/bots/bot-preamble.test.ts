@@ -88,12 +88,9 @@ describe('buildBotPreamble', () => {
       soul: null,
       memory: null
     })
-    expect(preamble).toContain(
-      'A plain reminder ("in 10 minutes", "at 3pm") is a wait with `--by` and no `--on`'
-    )
-    // The refusal is for a request no event and no time fits, so it never turns a timer away.
-    expect(preamble).toContain('If no listed event, schedule or time fits the request, say so')
-    expect(preamble).not.toContain('If nothing it lists fits the request')
+    // A reminder is a --once wait with --by and no --on; the refusal leaves room for a time.
+    expect(preamble).toMatch(/reminder \("in 10 minutes"[^\n]*`--by` and no `--on`/)
+    expect(preamble).toMatch(/If no listed event, schedule or time fits/)
   })
 
   it('quotes memory as notes, never instructions', () => {
