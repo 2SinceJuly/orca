@@ -25,10 +25,10 @@ export type BotPictureFace =
     }
   | { key: string; render: (current: boolean) => React.ReactNode; label: string }
 
-// Fit neighbours around the 112 px tile with 8 px gaps, inside the arrow gutters.
-const NEIGHBOUR_SIZE = 'clamp(0px, calc((100cqw - 128px) / 2), 72px)'
-const NEIGHBOUR_OFFSET = `calc((112px + ${NEIGHBOUR_SIZE}) / 2 + 8px)`
-const NEIGHBOUR_SCALE = `calc(${NEIGHBOUR_SIZE} / 112px)`
+// Keep the size unitless so the transform also works without CSS typed division.
+const NEIGHBOUR_SIZE = 'var(--picture-neighbour-size, 48)'
+const NEIGHBOUR_OFFSET = `calc((112 + ${NEIGHBOUR_SIZE}) * 0.5px + 8px)`
+const NEIGHBOUR_SCALE = `calc(${NEIGHBOUR_SIZE} / 112)`
 
 /** Signed distance from the current face, the short way round the wrapped list. */
 function faceOffset(index: number, current: number, count: number): number {
@@ -100,7 +100,11 @@ export function BotPictureCarousel({
     settle.current = setTimeout(() => setSlideOver(null), 400)
     onIndexChange(((next % count) + count) % count)
   }
-  const faceClass = cn(FACE_CLASS, sliding ? 'will-change-[transform,opacity]' : 'transition-none')
+  const faceClass = cn(
+    FACE_CLASS,
+    '@min-[240px]:[--picture-neighbour-size:56]',
+    sliding ? 'will-change-[transform,opacity]' : 'transition-none'
+  )
   return (
     <div
       role="group"
