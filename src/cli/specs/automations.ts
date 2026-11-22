@@ -88,7 +88,7 @@ export const AUTOMATION_COMMAND_SPECS: CommandSpec[] = [
       'orca automations create --name "Weekday triage" --trigger "0 9 * * 1-5" --prompt "Triage issues" --provider claude --repo my-repo',
       'orca automations create --name "PR review" --trigger hourly --precheck "gh pr list --json number -q .[0].number" --prompt "Review requested PRs" --provider codex',
       'orca automations create --name "Docs pass" --trigger daily --prompt "Tidy the docs" --provider claude --extra-agent-args="--model opus --effort high --add-dir docs"',
-      'orca automations create --name "Nora\'s reply in #orca" --bot ranger --once --by 2026-11-06T17:00:00-05:00 --prompt "Tell me what Nora said; if the deadline came first, remind me he hasn\'t replied" --on "slack.message subject=<thread link> from=@nora"',
+      'orca automations create --name "Nora\'s reply in #orca" --bot ranger --once --by <deadline, as YYYY-MM-DDTHH:MM:SS±HH:MM> --prompt "Tell me what Nora said; if the deadline came first, remind me he hasn\'t replied" --on "slack.message subject=<thread link> from=@nora"',
       'orca automations create --name "Stretch break" --bot ranger --once --by <now plus 10 minutes, as YYYY-MM-DDTHH:MM:SS±HH:MM> --prompt "Remind me to stretch"',
       'orca automations create --name "Stall investigator" --bot ranger --trigger "*/30 * * * *" --agent codex --model gpt-6.1-terra --effort high --results-to channel:C0123ABCD --prompt "Investigate stalls"',
       'orca automations create --name "Deploy pings" --bot ranger --prompt "Answer the deploy question" --on "slack.mentioned in=C0123ABCD contains=deploy"'

@@ -56,7 +56,8 @@ export function automationRunMark(run: AutomationRunMessage): AutomationRowMark 
 export type WaitRowState =
   | { kind: 'waiting'; once: AutomationOnce }
   | { kind: 'cancelled'; at: number }
-  | { kind: 'ended'; ending: WaitEnding }
+  /** `on`: the rules it had when it ended, when known; an edit may have changed the card's. */
+  | { kind: 'ended'; ending: WaitEnding; on?: BotAutomationFacts['on'] }
   | { kind: 'past'; at: number }
   | { kind: 'over' }
 
@@ -98,16 +99,21 @@ export function waitRowState(
   message: {
     automationSaved?: { automation: Pick<BotAutomationFacts, 'id' | 'once' | 'bot'> }
     savedWaitEnded?: WaitEnding
-    waitEnded?: { ending: WaitEnding }
+    savedWaitEndedOn?: BotAutomationFacts['on']
+    waitEnded?: { ending: WaitEnding; automation?: Pick<BotAutomationFacts, 'on'> }
     timestamp?: number | null
   },
   cancelledWaits: readonly { automationId: string; at: number }[] | undefined,
   now: number,
   host?: WaitHostRead | null
 ): WaitRowState | null {
-  const ending = message.waitEnded?.ending ?? message.savedWaitEnded
-  if (ending) {
-    return { kind: 'ended', ending }
+  if (message.waitEnded) {
+    const { ending, automation } = message.waitEnded
+    return { kind: 'ended', ending, ...(automation ? { on: automation.on ?? [] } : {}) }
+  }
+  if (message.savedWaitEnded) {
+    const on = message.savedWaitEndedOn
+    return { kind: 'ended', ending: message.savedWaitEnded, ...(on ? { on } : {}) }
   }
   const automation = message.automationSaved?.automation
   if (!automation?.once) {
@@ -172,12 +178,14 @@ export function waitRowStatus(
     return ''
   }
   const { ending } = state
-  const reply = waitsForReply(automation)
+  // How it ended reads from the rules it had then, so its cards agree after an edit.
+  const rules = state.on ? { on: state.on } : automation
+  const reply = waitsForReply(rules)
   switch (ending.kind) {
     case 'event':
       return reply && ending.actor ? say('replied', { actor: ending.actor }) : say('happened')
     case 'deadline': {
-      if (isReminder(automation)) {
+      if (isReminder(rules)) {
         return ''
       }
       const time = formatTime(ending.at)

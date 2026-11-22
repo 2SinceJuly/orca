@@ -145,6 +145,7 @@ export const MessageRow = memo(function MessageRow(
           automation={message.automationSaved.automation}
           once={message.automationSaved.automation.once}
           ended={message.savedWaitEnded}
+          endedOn={message.savedWaitEndedOn}
           timestamp={message.timestamp}
         />
       </div>

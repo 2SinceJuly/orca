@@ -89,13 +89,13 @@ describe('buildBotPreamble', () => {
       memory: null
     })
     const rules = preamble.split('\n')
-    // The rule naming a minutes-from-now reminder sets it as a --once wait with --by and no --on.
+    // The rule naming a minutes-from-now reminder sets it, affirmatively, as a --once wait with --by and no --on.
     const reminder = rules.find((rule) => rule.includes('in 10 minutes')) ?? ''
-    expect(reminder).toContain('`--once`')
-    expect(reminder).toMatch(/`--by[^`]*`[^.]*no `--on`/)
-    // The refusal leaves room for a time, so it never turns a timer away.
+    expect(reminder).toContain('one automation with `--once`')
+    expect(reminder).toMatch(/A plain reminder \([^)]*\) is a wait with `--by` and no `--on`/)
+    // The refusal is conditional on nothing fitting, a time included, so it never turns a timer away.
     const refusal = rules.find((rule) => rule.includes('say so before building anything')) ?? ''
-    expect(refusal).toMatch(/\btime\b/)
+    expect(refusal).toMatch(/If no listed event, schedule or time fits the request, say so/)
   })
 
   it('quotes memory as notes, never instructions', () => {

@@ -9,6 +9,8 @@ import {
   projectNativeChatTranscript,
   projectNativeChatTranscriptMessages
 } from './native-chat-transcript-projection'
+import { waitRowState, waitRowStatus } from '../../automations/automation-chat-row'
+import { sayAutomationRunEnglish } from '../../automations/automation-run-row-copy'
 
 let sequence = 0
 
@@ -258,6 +260,50 @@ describe('automation run rows', () => {
       row('wait', [], { waitEnded: { automation: facts, ending: expired } })
     ])
     expect(withCard!.savedWaitEnded).toEqual(expired)
+  })
+
+  // An edit can add or drop a reply rule while it waits; its created and updated cards then carry
+  // different rules, but each tells the outcome from the rules it ended with.
+  it('tells the same outcome on every card of a wait whose rules an edit changed', () => {
+    const wording = { say: sayAutomationRunEnglish, formatTime: () => '5 PM', schedule: '' }
+    const slack = { id: 'r1', source: 'slack' as const, event: 'message' as const }
+    const deadline = { kind: 'deadline' as const, at: 90 }
+    const card = (id: string, change: 'created' | 'updated', on: (typeof slack)[]) =>
+      row(id, [], {
+        role: 'system',
+        automationSaved: { change, automation: { ...facts, on, once: { by: 90 } } }
+      })
+    const ended = (on: (typeof slack)[]) =>
+      row('ran', say('Done'), {
+        role: 'user',
+        automationRun: { ...run, automation: { ...facts, on }, wait: deadline }
+      })
+    const outcomes = (rows: NativeChatMessage[]) =>
+      rows.flatMap((message) => {
+        const automation = message.automationSaved?.automation
+        const state = automation ? waitRowState(message, [], 100) : null
+        return automation && state ? [waitRowStatus(automation, state, wording)] : []
+      })
+    // A reply rule added: both cards say no reply came.
+    expect(
+      outcomes(
+        projectNativeChatTranscriptMessages([
+          card('a', 'created', []),
+          card('b', 'updated', [slack]),
+          ended([slack])
+        ])
+      )
+    ).toEqual(['No reply by 5 PM', 'No reply by 5 PM'])
+    // Its reply rule dropped, leaving a plain reminder: neither claims nothing came.
+    expect(
+      outcomes(
+        projectNativeChatTranscriptMessages([
+          card('a', 'created', [slack]),
+          card('b', 'updated', []),
+          ended([])
+        ])
+      )
+    ).toEqual(['', ''])
   })
 
   it("marks a Couldn't start row sent again once a message carries its run", () => {

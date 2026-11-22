@@ -38,7 +38,8 @@ import { triggerError } from '../../../platform/haptics/haptics'
 import { useMobileTranslation } from '../../../i18n/use-mobile-translation'
 import {
   MobileAutomationRowFrame,
-  mobileAutomationRowTime as time
+  mobileAutomationRowTime as time,
+  mobileAutomationWordingTime
 } from './MobileAutomationRowFrame'
 
 /** An automation's row wording, in English: a run's as saved when it ran, or the automation's own. */
@@ -49,7 +50,7 @@ export function useMobileAutomationRowWording(
     const schedule = botAutomationWhenParts(automation).find((part) => part.kind === 'schedule')
     return {
       say: sayAutomationRunEnglish,
-      formatTime: time,
+      formatTime: (at) => mobileAutomationWordingTime(at),
       schedule:
         schedule?.kind === 'schedule' ? formatAutomationScheduleDescriptor(schedule.schedule) : ''
     }

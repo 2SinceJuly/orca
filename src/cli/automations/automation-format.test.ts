@@ -38,6 +38,17 @@ describe('a wait in automations list and show', () => {
     }
   })
 
+  it('keeps the seconds and milliseconds a reminder was set to, so near times differ', () => {
+    const at = (iso: string) =>
+      formatAutomationShow({ automation: { ...wait([]), once: { by: Date.parse(iso) } } })
+    expect(at('2026-12-01T15:10:59.999Z')).toContain(
+      'runs once at 2026-12-01 10:10:59.999 (-05:00)'
+    )
+    expect(at('2026-12-01T15:10:30Z')).toContain('runs once at 2026-12-01 10:10:30 (-05:00)')
+    vi.stubEnv('TZ', 'Asia/Kathmandu')
+    expect(at('2026-12-01T15:10:00Z')).toContain('runs once at 2026-12-01 20:55 (+05:45)')
+  })
+
   it('keeps the event-or-deadline wording when a wait also has an event', () => {
     for (const text of [
       formatAutomationList({ automations: [wait([slack])] }),

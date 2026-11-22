@@ -229,7 +229,10 @@ describe('--on trigger specs', () => {
 
   it('says a time can start one too, so a bot never refuses a short reminder', () => {
     const options = formatAutomationTriggerOptions(undefined, { name: 'Scout' })
-    expect(options).toContain('`--once --by <ISO time>`')
+    // Affirmative: a time starts one, and the reminder form is that flag pair alone.
+    expect(options).toMatch(
+      /only a time starts one: [^.]*`--once --by <ISO time>` alone for a one-time reminder/
+    )
     expect(options).not.toMatch(/Nothing else can start/)
   })
 

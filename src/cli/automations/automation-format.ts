@@ -100,7 +100,7 @@ function formatOnce(automation: Automation): string {
   }
   // A reminder: no event, so only its time starts it.
   return (automation.on ?? []).length === 0
-    ? `runs once at ${formatLocalTime(by)}`
+    ? `runs once at ${formatLocalTime(by, true)}`
     : `runs once, on an event or at ${new Date(by).toISOString()}, whichever comes first`
 }
 
