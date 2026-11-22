@@ -173,3 +173,27 @@ export function pluginMarketplaceListing(input: {
       : {})
   }
 }
+
+export function pluginMarketplaceSourceState(
+  source: PluginMarketplaceRegisteredSource,
+  snapshot: PluginMarketplaceCachedSnapshot | null,
+  stale: boolean,
+  error?: string
+): PluginMarketplaceSourceState {
+  return {
+    id: source.id,
+    source: source.source,
+    addedAt: source.addedAt,
+    marketplace: snapshot
+      ? {
+          name: snapshot.marketplace.name,
+          owner: snapshot.marketplace.owner,
+          resolvedCommit: snapshot.marketplaceCommit,
+          fetchedAt: snapshot.fetchedAt
+        }
+      : null,
+    stale,
+    official: isOfficialMarketplaceGitSource(source.source.url),
+    ...(error ? { error } : {})
+  }
+}

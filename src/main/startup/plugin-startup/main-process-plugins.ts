@@ -84,7 +84,6 @@ export async function initializeMainProcessPlugins(core: DesktopCore, store: Sto
   core.pluginMarketplaceService = new PluginMarketplaceService({
     store: pluginImages.store,
     repositories: pluginImages.repositories,
-    imageCache: pluginImages.imageCache,
     pluginsDataDir: getPluginsDataDir(app.getPath('userData')),
     getKillListEntry: (pluginKey) => core.pluginKillListService?.find(pluginKey) ?? null,
     hostVersion: pluginHostVersion(app.getVersion())
