@@ -116,7 +116,7 @@ function WaitRow({
         {once && state.kind === 'waiting' ? (
           <>
             <h4 className={ROW_HEADING}>{say('thenLine')}</h4>
-            <div className={ROW_NOTE}>{waitRowThen(once, wording)}</div>
+            <div className={ROW_NOTE}>{waitRowThen(automation, once, wording)}</div>
           </>
         ) : null}
         {bot ? (

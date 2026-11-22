@@ -149,11 +149,15 @@ const REPLY_EVENTS = new Set([
   'linear.mentioned'
 ])
 
+// A reminder: a deadline and no event, so nothing can come before it.
+const isReminder = (automation: Pick<BotAutomationFacts, 'on'>) =>
+  (automation.on ?? []).length === 0
+
 function waitsForReply(automation: Pick<BotAutomationFacts, 'on'>): boolean {
   return (automation.on ?? []).some((rule) => REPLY_EVENTS.has(`${rule.source}.${rule.event}`))
 }
 
-/** "Until 5 PM", "No deadline", "Nora replied", "No reply by 5 PM", "After 30 days"; empty when cancelled. */
+/** "Until 5 PM", "No deadline", "Nora replied", "No reply by 5 PM", "After 30 days"; empty when cancelled, or when a reminder came due. */
 export function waitRowStatus(
   automation: Pick<BotAutomationFacts, 'on'>,
   state: WaitRowState,
@@ -173,6 +177,9 @@ export function waitRowStatus(
     case 'event':
       return reply && ending.actor ? say('replied', { actor: ending.actor }) : say('happened')
     case 'deadline': {
+      if (isReminder(automation)) {
+        return ''
+      }
       const time = formatTime(ending.at)
       return reply ? say('noReplyBy', { time }) : say('nothingBy', { time })
     }
@@ -197,10 +204,16 @@ export function waitRowTime(state: WaitRowState, madeAt: number | null): number 
 }
 
 /** The opened wait's "Then" line. */
-export function waitRowThen(once: AutomationOnce, wording: AutomationRunWording): string {
-  return once.by === undefined
-    ? wording.say('thenOnce')
-    : wording.say('thenOnceBy', { time: wording.formatTime(once.by) })
+export function waitRowThen(
+  automation: Pick<BotAutomationFacts, 'on'>,
+  once: AutomationOnce,
+  wording: AutomationRunWording
+): string {
+  if (once.by === undefined) {
+    return wording.say('thenOnce')
+  }
+  const time = wording.formatTime(once.by)
+  return wording.say(isReminder(automation) ? 'thenAt' : 'thenOnceBy', { time })
 }
 
 /** Any row's accessible name but a run's: label, name, then whatever status and time it shows. */

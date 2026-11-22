@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { waitHostRead, waitRowState } from './automation-chat-row'
+import { waitHostRead, waitRowState, waitRowStatus, waitRowThen } from './automation-chat-row'
+import { sayAutomationRunEnglish } from './automation-run-row-copy'
 
 const made = (by?: number) => ({
   automationSaved: { automation: { id: 'auto-1', once: by === undefined ? {} : { by } } }
@@ -48,5 +49,22 @@ describe("a wait's creation row", () => {
     expect(
       waitRowState(card, [{ automationId: 'auto-1', at: 1_200 }], 2_000, read(1_500, []))
     ).toEqual({ kind: 'cancelled', at: 1_200 })
+  })
+})
+
+describe("a reminder's row (a deadline and no event)", () => {
+  const wording = { say: sayAutomationRunEnglish, formatTime: () => '5:10 PM', schedule: '' }
+  const reminder = { on: [] }
+  const reply = { on: [{ id: 'r1', source: 'slack' as const, event: 'message' as const }] }
+
+  it('says only when it runs, never that something could come first', () => {
+    expect(waitRowThen(reminder, { by: 100 }, wording)).toBe('Runs once at 5:10 PM')
+    expect(waitRowThen(reply, { by: 100 }, wording)).toBe('Runs once; at 5:10 PM if nothing came')
+  })
+
+  it('does not read as nothing came when its time comes', () => {
+    const ended = { kind: 'ended' as const, ending: { kind: 'deadline' as const, at: 100 } }
+    expect(waitRowStatus(reminder, ended, wording)).toBe('')
+    expect(waitRowStatus(reply, ended, wording)).toBe('No reply by 5:10 PM')
   })
 })

@@ -16,6 +16,7 @@ import { quoteCliCommandArgument } from '../arguments/shell-command-quote'
 import { BOT_CHAT_ID_PREFIX } from '../../shared/bots/bot-chat-row'
 import type { RuntimeRpcSuccess } from '../../shared/remote-runtime/rpc/runtime-rpc-envelope'
 import { printResult } from '../output/command-result-output'
+import { formatLocalTime } from '../output/local-time'
 
 export type AutomationListPayload = {
   automations: Automation[]
@@ -82,10 +83,6 @@ function formatBotAgent(target: NonNullable<Automation['bot']>): string {
 function formatWhen(automation: Automation): string {
   const events = (automation.on ?? []).map(describeAutomationEventTrigger)
   if (automation.once) {
-    // A reminder: a deadline and no event, so only the time starts it.
-    if (events.length === 0 && automation.once.by !== undefined) {
-      return `runs once at ${new Date(automation.once.by).toLocaleString()}`
-    }
     return `${formatOnce(automation)}${events.length > 0 ? `: ${events.join('; ')}` : ''}`
   }
   if (!hasAutomationSchedule(automation)) {
@@ -98,8 +95,12 @@ function formatWhen(automation: Automation): string {
 // A wait: one run, then Orca deletes it.
 function formatOnce(automation: Automation): string {
   const by = automation.once?.by
-  return by === undefined
-    ? `runs once, only on an event (ends unrun 30 days after it was made)`
+  if (by === undefined) {
+    return `runs once, only on an event (ends unrun 30 days after it was made)`
+  }
+  // A reminder: no event, so only its time starts it.
+  return (automation.on ?? []).length === 0
+    ? `runs once at ${formatLocalTime(by)}`
     : `runs once, on an event or at ${new Date(by).toISOString()}, whichever comes first`
 }
 
