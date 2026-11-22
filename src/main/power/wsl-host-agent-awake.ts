@@ -26,6 +26,7 @@ export type WslHostAgentAwakeDeps = {
 /** One working pane. `hostObservedAt` only tells a new observation from a repeat; `receivedAt` is
  *  this machine's first receipt of it, or null for a row already working before this app saw the host. */
 type PaneReceipt = { hostObservedAt: number; receivedAt: number | null }
+type SnapshotReceiptMode = 'hydrate' | 'observe' | 'enable'
 
 type HostWatch = {
   opening: AbortController | null
@@ -213,14 +214,14 @@ export class WslHostAgentAwake {
     if (frame.type === 'snapshots' && Array.isArray(frame.snapshots)) {
       // Why: rows already working when this app first sees the host are hydrated, not observed,
       // unless keep-awake was just turned on: then the agents are live and must count at once.
-      const hydrating = receipts === undefined && !this.countFirstInventory.has(environmentId)
-      this.countFirstInventory.delete(environmentId)
+      const inventoryMode = receipts === undefined ? 'hydrate' : 'observe'
+      const receiptMode = this.countFirstInventory.delete(environmentId) ? 'enable' : inventoryMode
       watch.worktrees.clear()
       for (const snapshot of frame.snapshots) {
-        this.applySnapshot(watch, receipts, snapshot, hydrating)
+        this.applySnapshot(watch, receipts, snapshot, receiptMode)
       }
     } else if (frame.type === 'updated' || frame.type === 'snapshot') {
-      this.applySnapshot(watch, receipts, frame, false)
+      this.applySnapshot(watch, receipts, frame, 'observe')
     } else {
       return false
     }
@@ -239,7 +240,7 @@ export class WslHostAgentAwake {
     watch: HostWatch,
     receipts: ReadonlyMap<string, PaneReceipt> | undefined,
     snapshot: unknown,
-    hydrating: boolean
+    receiptMode: SnapshotReceiptMode
   ): void {
     if (!isRecord(snapshot) || typeof snapshot.worktree !== 'string') {
       return
@@ -256,11 +257,12 @@ export class WslHostAgentAwake {
       }
       const paneKey = `${snapshot.worktree}\0${tab.id}`
       const previous = receipts?.get(paneKey)
-      // Why: a repeated observation keeps its first receipt, so resent frames never extend the lease.
+      // Keep the original lease so repeated observations expire even across Auto toggles.
       const receipt =
-        previous?.hostObservedAt === hostObservedAt
+        previous?.hostObservedAt === hostObservedAt &&
+        (receiptMode !== 'enable' || previous.receivedAt !== null)
           ? previous
-          : { hostObservedAt, receivedAt: hydrating ? null : this.deps.now() }
+          : { hostObservedAt, receivedAt: receiptMode === 'hydrate' ? null : this.deps.now() }
       panes.set(paneKey, receipt)
     }
     watch.worktrees.set(snapshot.worktree, panes)
