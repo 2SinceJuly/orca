@@ -1165,6 +1165,10 @@
     "queuedMessageCardRow": {
       "images_one": "{{count}} image",
       "images_other": "{{count}} images"
+    },
+    "tabsSheet": {
+      "panes_one": "{{count}} pane",
+      "panes_other": "{{count}} panes"
     }
   },
   "settings": {

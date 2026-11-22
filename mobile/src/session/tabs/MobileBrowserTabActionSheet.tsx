@@ -1,8 +1,9 @@
-import { ChevronLeft, ChevronRight, RefreshCw, UserRound } from 'lucide-react-native'
+import { ChevronLeft, ChevronRight, RefreshCw, UserRound, X } from 'lucide-react-native'
 import type { MobileSessionTab } from './mobile-session-tabs'
 import { ActionSheetModal, type ActionSheetAction } from '../../components/sheets/ActionSheetModal'
 import { getMobileSessionTabTitle } from './mobile-terminal-tab-agent'
 import { useMobileTranslation } from '../../i18n/use-mobile-translation'
+import { mobileSessionTabMenuHeader } from './MobileSessionTabMark'
 
 type BrowserTab = Extract<MobileSessionTab, { type: 'browser' }>
 export type MobileBrowserNavigationMethod = 'browser.back' | 'browser.forward' | 'browser.reload'
@@ -23,6 +24,8 @@ export function MobileBrowserTabActionSheet(props: {
   return (
     <ActionSheetModal
       visible={target != null}
+      {...mobileSessionTabMenuHeader(target, [])}
+      groupDestructive
       title={
         target
           ? getMobileSessionTabTitle(target)
@@ -87,7 +90,8 @@ export function MobileBrowserTabActionSheet(props: {
           : []),
         {
           id: 'close',
-          label: t('common.close', 'Close'),
+          label: t('session.tabMenu.closeTab', 'Close Tab'),
+          icon: X,
           destructive: true,
           onPress: () => {
             const current = target
