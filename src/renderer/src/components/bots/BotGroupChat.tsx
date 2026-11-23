@@ -105,7 +105,7 @@ export function BotGroupChat({
     }
     const bySession = new Map<
       string,
-      Pick<Turn, 'sessionId' | 'agent'> & { operationIds: string[]; ended: Map<string, boolean> }
+      Pick<Turn, 'sessionId' | 'agent'> & { operationIds: string[]; turns: Turn[] }
     >()
     for (const member of group.members) {
       const bot = bots.find((bot) => bot.id === member.botId && bot.hostId === group.hostId)
@@ -114,26 +114,22 @@ export function BotGroupChat({
           sessionId: member.sessionId,
           agent: bot.agent,
           operationIds: [],
-          ended: new Map()
+          turns: []
         })
       }
     }
     for (const message of messages) {
       for (const turn of message.turns) {
         if (!turn.revoked) {
-          const ended = bySession.get(turn.sessionId)?.ended ?? new Map<string, boolean>()
-          if (turn.ended) {
-            ended.set(turn.operationId, turn.ended.reply !== undefined)
+          let reader = bySession.get(turn.sessionId)
+          if (!reader) {
+            reader = { sessionId: turn.sessionId, agent: turn.agent, operationIds: [], turns: [] }
+            bySession.set(turn.sessionId, reader)
           }
-          bySession.set(turn.sessionId, {
-            sessionId: turn.sessionId,
-            agent: turn.agent,
-            operationIds: [
-              ...(bySession.get(turn.sessionId)?.operationIds ?? []),
-              turn.operationId
-            ],
-            ended
-          })
+          // A later turn's agent wins, as each turn replaced the reader before.
+          reader.agent = turn.agent
+          reader.operationIds.push(turn.operationId)
+          reader.turns.push(turn)
         }
       }
     }

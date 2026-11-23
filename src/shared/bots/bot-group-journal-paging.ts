@@ -1,30 +1,33 @@
 import type { AgentJournalRenderItem } from '../agent-session/journal/agent-session-journal-types'
-import { botGroupOperationSubmission, type GroupJournal } from './bot-group'
+import { botGroupOperationSubmission, type BotGroupTurn, type GroupJournal } from './bot-group'
 
 /** The most older pages a room reader asks for an ended turn's rows: its saved reply already shows,
  *  so the room never reads a long chat's whole history for it. */
 export const BOT_GROUP_ENDED_PAGE_LIMIT = 5
 
+/** A room reader's member turn: its operation, and its page marker once it ended. */
+export type BotGroupReaderTurn = Pick<BotGroupTurn, 'operationId' | 'ended'>
+
 /** Why a turn's rows the room needs are further back: `admitted`, one with no loaded rows whose send
  *  was admitted on this page; `ended`, one that ended (a long turn's send can be older than the page)
  *  with no loaded rows, or with a reply but none of its text loaded yet; null when none is. Queued or
- *  refused ones have none. `ended` maps each ended turn to whether it left a reply. */
+ *  refused ones have none. With `endedPages` false (the reader spent its pages), only `admitted`. */
 export function botGroupTurnsOlderThanPage(
   snapshot: GroupJournal,
-  operationIds: readonly string[],
-  ended: ReadonlyMap<string, boolean>,
-  loaded: (operationId: string) => readonly AgentJournalRenderItem[]
+  turns: readonly BotGroupReaderTurn[],
+  loaded: (operationId: string) => readonly AgentJournalRenderItem[],
+  endedPages: boolean
 ): 'admitted' | 'ended' | null {
   let reason: 'ended' | null = null
-  for (const id of operationIds) {
-    const rows = loaded(id)
+  for (const { operationId, ended } of turns) {
+    const rows = loaded(operationId)
     if (rows.length > 0) {
-      if (ended.get(id) === true && !holdsText(rows)) {
+      if (endedPages && reason === null && ended?.reply !== undefined && !holdsText(rows)) {
         reason = 'ended'
       }
-    } else if (botGroupOperationSubmission(snapshot, id)?.dispatchState === 'accepted') {
+    } else if (botGroupOperationSubmission(snapshot, operationId)?.dispatchState === 'accepted') {
       return 'admitted'
-    } else if (ended.has(id)) {
+    } else if (endedPages && ended) {
       reason = 'ended'
     }
   }

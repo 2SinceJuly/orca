@@ -8,6 +8,7 @@ import {
 } from '../../../../shared/bots/bot-group'
 import {
   BOT_GROUP_ENDED_PAGE_LIMIT,
+  type BotGroupReaderTurn,
   botGroupTurnsOlderThanPage
 } from '../../../../shared/bots/bot-group-journal-paging'
 export type BotGroupSession = ReturnType<typeof useStructuredAgentSession> & {
@@ -23,7 +24,7 @@ export const BotGroupSessionReader = memo(function BotGroupSessionReader({
   target: RuntimeClientTarget
   turn: Pick<BotGroupTurn, 'sessionId' | 'agent'> & {
     operationIds: readonly string[]
-    ended: ReadonlyMap<string, boolean>
+    turns: readonly BotGroupReaderTurn[]
   }
   visible: boolean
   report: (sessionId: string, session: BotGroupSession | null) => void
@@ -60,11 +61,11 @@ export const BotGroupSessionReader = memo(function BotGroupSessionReader({
     }
     const reason = botGroupTurnsOlderThanPage(
       { items: controller.journalItems, submissions: controller.submissions },
-      turn.operationIds,
-      turn.ended,
-      groupTurnItems
+      turn.turns,
+      groupTurnItems,
+      endedPages.current < BOT_GROUP_ENDED_PAGE_LIMIT
     )
-    if (!reason || (reason === 'ended' && endedPages.current >= BOT_GROUP_ENDED_PAGE_LIMIT)) {
+    if (!reason) {
       return
     }
     endedPages.current += reason === 'ended' ? 1 : 0
@@ -76,7 +77,7 @@ export const BotGroupSessionReader = memo(function BotGroupSessionReader({
     loadingOlder,
     loadOlder,
     turn.operationIds,
-    turn.ended,
+    turn.turns,
     groupTurnItems,
     controller.journalItems,
     controller.submissions

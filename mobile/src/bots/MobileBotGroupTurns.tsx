@@ -17,6 +17,7 @@ import {
 } from '../../../src/shared/bots/bot-group'
 import {
   BOT_GROUP_ENDED_PAGE_LIMIT,
+  type BotGroupReaderTurn,
   botGroupTurnsOlderThanPage
 } from '../../../src/shared/bots/bot-group-journal-paging'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
@@ -49,7 +50,7 @@ export const MobileBotGroupReader = memo(function Reader({
 }: {
   turn: Pick<BotGroupTurn, 'sessionId' | 'agent'> & {
     operationIds: readonly string[]
-    ended: ReadonlyMap<string, boolean>
+    turns: readonly BotGroupReaderTurn[]
   }
   client: RpcClient
   support: StructuredAgentSessionHostSupport
@@ -89,11 +90,11 @@ export const MobileBotGroupReader = memo(function Reader({
     }
     const reason = botGroupTurnsOlderThanPage(
       session.journal,
-      turn.operationIds,
-      turn.ended,
-      groupTurnItems
+      turn.turns,
+      groupTurnItems,
+      endedPages.current < BOT_GROUP_ENDED_PAGE_LIMIT
     )
-    if (!reason || (reason === 'ended' && endedPages.current >= BOT_GROUP_ENDED_PAGE_LIMIT)) {
+    if (!reason) {
       return
     }
     endedPages.current += reason === 'ended' ? 1 : 0
@@ -107,7 +108,7 @@ export const MobileBotGroupReader = memo(function Reader({
     loadingEarlier,
     loadEarlier,
     turn.operationIds,
-    turn.ended,
+    turn.turns,
     groupTurnItems,
     session.journal
   ])

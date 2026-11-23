@@ -120,11 +120,7 @@ export function MobileBotGroupRoom({
                 sessionId: member.sessionId,
                 agent: bot.agent,
                 operationIds: turns.map((turn) => turn.operationId),
-                ended: new Map(
-                  turns.flatMap((turn) =>
-                    turn.ended ? [[turn.operationId, turn.ended.reply !== undefined] as const] : []
-                  )
-                )
+                turns
               }
             ]
           : []

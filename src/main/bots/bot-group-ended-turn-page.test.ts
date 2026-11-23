@@ -90,15 +90,13 @@ it('pages back for an ended turn whose send is older than the loaded page', () =
 
   // The loaded page holds only the turn's newest rows: no prompt row, no submission.
   const tail: { items: AgentJournalRenderItem[]; submissions: [] } = { items: [], submissions: [] }
-  const ended = new Map(
-    message.turns.flatMap((t) =>
-      t.ended ? [[t.operationId, t.ended.reply !== undefined] as const] : []
-    )
-  )
+  const only = (id: string) => message.turns.filter((t) => t.operationId === id)
   const none = () => []
-  expect(botGroupTurnsOlderThanPage(tail, ['finished'], ended, none)).toBe('ended')
+  expect(botGroupTurnsOlderThanPage(tail, only('finished'), none, true)).toBe('ended')
   // A turn with no submission on the page and no end may be queued; nothing older to find.
-  expect(botGroupTurnsOlderThanPage(tail, ['running'], ended, none)).toBe(null)
+  expect(botGroupTurnsOlderThanPage(tail, only('running'), none, true)).toBe(null)
+  // Once the reader spent its pages for ended turns, it looks no further for them.
+  expect(botGroupTurnsOlderThanPage(tail, only('finished'), none, false)).toBe(null)
   // Only its last tool call loaded: its text is further back, so the room keeps paging until it is.
   const row = (body: AgentJournalRenderItem['body']): AgentJournalRenderItem => ({
     itemId: 'row',
@@ -117,10 +115,10 @@ it('pages back for an ended turn whose send is older than the loaded page', () =
     role: 'assistant',
     blocks: [{ type: 'text', text: 'Audit done.' }]
   })
-  expect(botGroupTurnsOlderThanPage(tail, ['finished'], ended, () => [call])).toBe('ended')
-  expect(botGroupTurnsOlderThanPage(tail, ['finished'], ended, () => [said, call])).toBe(null)
+  expect(botGroupTurnsOlderThanPage(tail, only('finished'), () => [call], true)).toBe('ended')
+  expect(botGroupTurnsOlderThanPage(tail, only('finished'), () => [said, call], true)).toBe(null)
   // A turn that ended without a reply has no text to find.
-  expect(botGroupTurnsOlderThanPage(tail, ['quiet'], ended, () => [call])).toBe(null)
+  expect(botGroupTurnsOlderThanPage(tail, only('quiet'), () => [call], true)).toBe(null)
 })
 
 it('keeps a page of long replies far under the reply limit, newest posts first', () => {
