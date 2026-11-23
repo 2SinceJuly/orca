@@ -139,8 +139,22 @@ it('keeps a page of long replies far under the reply limit, newest posts first',
   expect(JSON.stringify(messages).length).toBeLessThan(1_000_000)
   // Every turn still reads as ended with a reply; the newest posts carry its text.
   expect(replies.every((reply) => reply !== undefined)).toBe(true)
-  expect(messages.at(-1)!.turns[0].ended?.reply?.length).toBe(4_001)
+  expect(messages.at(-1)!.turns[0].ended?.reply?.length).toBe(501)
   expect(messages[0].turns[0].ended?.reply).toBe('')
+})
+
+it('shares the page budget so one post of many long replies shows every one', () => {
+  const { store, groups } = room()
+  store.append({
+    id: 'message-1',
+    groupId: 'group-1',
+    author: { kind: 'owner' },
+    text: '@all go',
+    createdAt: 2,
+    turns: Array.from({ length: 32 }, (_, index) => turn(`op-${index}`, 'x'.repeat(5_000)))
+  })
+  const [message] = readBotGroup(groups, 'group-1').messages
+  expect(message.turns.every((t) => (t.ended?.reply?.length ?? 0) >= 2_000)).toBe(true)
 })
 
 it("leaves a member turn end's room notice to the reply save, not the phase change", () => {
