@@ -18,6 +18,7 @@ import {
 import {
   BOT_GROUP_ENDED_PAGE_LIMIT,
   BOT_GROUP_HIDDEN_PAGE_LIMIT,
+  BOT_GROUP_PAGE_RETRY_MS,
   type BotGroupReaderTurn,
   botGroupTurnsOlderThanPage
 } from '../../../src/shared/bots/bot-group-journal-paging'
@@ -81,25 +82,44 @@ export const MobileBotGroupReader = memo(function Reader({
   // restart does not refill, so reopening a room never reads further back.
   const pagedAt = useRef<unknown>(null)
   const endedPages = useRef(0)
+  const retries = useRef<{ rows: unknown; count: number }>({ rows: null, count: 0 })
+  const [retry, setRetry] = useState(0)
   useEffect(() => {
     if (!visible || !connected || status !== 'ready') {
       pagedAt.current = null
-      return
+      return undefined
     }
-    if (!hasMore || loadingEarlier || pagedAt.current === session.journal.items) {
-      return
+    if (retries.current.rows !== session.journal.items) {
+      retries.current = { rows: session.journal.items, count: 0 }
+    }
+    if (!hasMore || loadingEarlier) {
+      return undefined
     }
     const reason = botGroupTurnsOlderThanPage(session.journal, turn.turns, groupTurnItems, {
       ended: endedPages.current < BOT_GROUP_ENDED_PAGE_LIMIT,
       hidden: endedPages.current < BOT_GROUP_HIDDEN_PAGE_LIMIT
     })
     if (!reason) {
-      return
+      return undefined
+    }
+    if (pagedAt.current === session.journal.items) {
+      const delay = BOT_GROUP_PAGE_RETRY_MS[retries.current.count]
+      if (delay === undefined) {
+        return undefined
+      }
+      const timer = setTimeout(() => {
+        retries.current.count += 1
+        pagedAt.current = null
+        setRetry((count) => count + 1)
+      }, delay)
+      return () => clearTimeout(timer)
     }
     endedPages.current += reason === 'admitted' ? 0 : 1
     pagedAt.current = session.journal.items
     void loadEarlier()
+    return undefined
   }, [
+    retry,
     visible,
     connected,
     status,

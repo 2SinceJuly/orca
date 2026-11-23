@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import type { RuntimeClientTarget } from '../../../../shared/remote-runtime/host-catalog/runtime-client-target'
 import { useStructuredAgentSession } from '../native-chat/session/structured/use-structured-agent-session'
 import {
@@ -9,6 +9,7 @@ import {
 import {
   BOT_GROUP_ENDED_PAGE_LIMIT,
   BOT_GROUP_HIDDEN_PAGE_LIMIT,
+  BOT_GROUP_PAGE_RETRY_MS,
   type BotGroupReaderTurn,
   botGroupTurnsOlderThanPage
 } from '../../../../shared/bots/bot-group-journal-paging'
@@ -52,13 +53,18 @@ export const BotGroupSessionReader = memo(function BotGroupSessionReader({
   // restart does not refill, so reopening a room never reads further back.
   const pagedAt = useRef<unknown>(null)
   const endedPages = useRef(0)
+  const retries = useRef<{ rows: unknown; count: number }>({ rows: null, count: 0 })
+  const [retry, setRetry] = useState(0)
   useEffect(() => {
-    if (!readCurrent) {
+    if (!readCurrent || !visible) {
       pagedAt.current = null
-      return
+      return undefined
     }
-    if (!hasOlder || loadingOlder || pagedAt.current === controller.journalItems) {
-      return
+    if (retries.current.rows !== controller.journalItems) {
+      retries.current = { rows: controller.journalItems, count: 0 }
+    }
+    if (!hasOlder || loadingOlder) {
+      return undefined
     }
     const reason = botGroupTurnsOlderThanPage(
       { items: controller.journalItems, submissions: controller.submissions },
@@ -70,12 +76,27 @@ export const BotGroupSessionReader = memo(function BotGroupSessionReader({
       }
     )
     if (!reason) {
-      return
+      return undefined
+    }
+    if (pagedAt.current === controller.journalItems) {
+      const delay = BOT_GROUP_PAGE_RETRY_MS[retries.current.count]
+      if (delay === undefined) {
+        return undefined
+      }
+      const timer = setTimeout(() => {
+        retries.current.count += 1
+        pagedAt.current = null
+        setRetry((count) => count + 1)
+      }, delay)
+      return () => clearTimeout(timer)
     }
     endedPages.current += reason === 'admitted' ? 0 : 1
     pagedAt.current = controller.journalItems
     void loadOlder()
+    return undefined
   }, [
+    retry,
+    visible,
     readCurrent,
     hasOlder,
     loadingOlder,

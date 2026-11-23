@@ -4,6 +4,9 @@ import { botGroupOperationSubmission, type BotGroupTurn, type GroupJournal } fro
 /** The most older pages a room reader asks for an ended turn's rows: its saved reply already shows,
  *  so the room never reads a long chat's whole history for it. */
 export const BOT_GROUP_ENDED_PAGE_LIMIT = 5
+/** The waits before a room reader asks again for a page whose last read added no rows (it may have
+ *  failed): a few spaced retries, then none until the rows change. */
+export const BOT_GROUP_PAGE_RETRY_MS: readonly number[] = [5_000, 20_000, 60_000]
 /** The same for an ended turn whose reply the page had no room to carry: nothing of it shows yet. */
 export const BOT_GROUP_HIDDEN_PAGE_LIMIT = 20
 
