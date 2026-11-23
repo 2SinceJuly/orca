@@ -117,6 +117,10 @@ const BotGroupTurnSchema = z.object({
   /** The finished reply, saved when the turn ended; null when it ended without one. Absent while
    *  the turn runs, and on turns saved before replies were. */
   reply: z.string().nullable().optional(),
+  /** On a room page only, for a saved reply: the turn ended, so its chat holds its rows however
+   *  far back they are; `reply` is that reply's tail, drawn until they load (empty past the page's
+   *  budget), and absent when the turn left none. */
+  ended: z.object({ reply: z.string().optional() }).optional(),
   /** Its answer to another member's request: sent as mail, so its own chat shows only the call. */
   answer: z.string().optional(),
   /** The members its reply named, saved as their hand-offs were reserved: a replay wakes none. */
@@ -277,10 +281,11 @@ export function botGroupTurnReplyText(
 }
 
 /** A turn's rows as the room draws them on desktop and mobile: its answer to a member's request
- *  closes them, unless its own words already said it. */
+ *  closes them, unless its own words already said it. An ended turn whose loaded rows hold none of
+ *  its words (its text is older than the page, or no rows loaded) shows its saved reply instead. */
 export function withBotGroupTurnAnswer(
   messages: NativeChatMessage[],
-  turn: Pick<BotGroupTurn, 'operationId' | 'answer'>
+  turn: Pick<BotGroupTurn, 'operationId' | 'answer' | 'ended'>
 ): NativeChatMessage[] {
   const words = messages
     .flatMap((message) =>
@@ -289,13 +294,17 @@ export function withBotGroupTurnAnswer(
         : []
     )
     .join('\n')
-  return turn.answer?.trim() && !holdsAnswer(words, turn.answer)
+  const answer =
+    !words.trim() && turn.ended
+      ? (botGroupTurnReplyText(turn.ended.reply, turn.answer) ?? undefined)
+      : turn.answer
+  return answer?.trim() && !holdsAnswer(words, answer)
     ? [
         ...messages,
         {
           id: `${turn.operationId}:answer`,
           role: 'assistant',
-          blocks: [{ type: 'text', text: turn.answer }],
+          blocks: [{ type: 'text', text: answer }],
           timestamp: null,
           source: 'transcript'
         }

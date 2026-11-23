@@ -17,6 +17,7 @@ import {
 } from '../native-chat/agent-session-attachments/agent-session-attachment-store-registry'
 import { hasAttachmentStoreReference } from './bot-attachment-images'
 import { admitBotGroupMessageAttachments, botGroupMessageSummary } from './bot-group-attachments'
+import { withEndedTurns } from './bot-group-ended-turns'
 import { requireStructuredHost, type BotRunFields } from './bot-chat-session'
 import { requireGroupBots } from './bot-group-membership'
 import type { BotGroupRuntime } from './bot-group-runtime'
@@ -303,11 +304,9 @@ export function readBotGroup(
   settleDeadGroupMailTurns(groups, messages)
   return {
     group,
-    // Saved replies feed later posts' context only; the room renders each turn from its chat.
-    messages: presentPageAnswers(messages).map((message) => ({
-      ...message,
-      turns: message.turns.map(({ reply: _reply, ...turn }) => turn)
-    })),
+    // Saved replies feed later posts' context; the room renders each turn from its chat, paging
+    // back for an ended one whose rows are older than the loaded page.
+    messages: withEndedTurns(presentPageAnswers(messages)),
     hasEarlier:
       messages.length > 0 &&
       groups.store.roomMessages(groupId, threadId, 1, messages[0].sequence).length > 0

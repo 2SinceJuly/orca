@@ -117,13 +117,20 @@ export const BotGroupTurn = memo(function BotGroupTurn({
     () => project(projection.messages, { items, submissions }),
     [project, projection.messages, items, submissions]
   )
+  // By meaning, not identity: every room page read builds fresh markers.
+  const ended = turn.ended !== undefined
+  const endedReply = turn.ended?.reply
   const messages = useMemo(
     () =>
       withBotGroupTurnAnswer(
         projected.conversation.filter((message) => message.role !== 'user'),
-        { operationId: turn.operationId, answer: turn.answer }
+        {
+          operationId: turn.operationId,
+          answer: turn.answer,
+          ended: ended ? { reply: endedReply } : undefined
+        }
       ),
-    [projected.conversation, turn.operationId, turn.answer]
+    [projected.conversation, turn.operationId, turn.answer, ended, endedReply]
   )
   useBotGroupTranscriptRows(roomRows, turn.operationId, messages)
   // Each room turn opens its subagents in place, as a chat pane does, keyed to this turn.
@@ -218,7 +225,8 @@ export const BotGroupTurn = memo(function BotGroupTurn({
     onRevealDiff: () => {},
     actionablePromptIds: session?.hostWork?.actionablePromptIds
   }
-  const waiting = !lifecycle && !rejection
+  // An ended turn's rows may still be loading from further back in its chat.
+  const waiting = !lifecycle && !rejection && !turn.ended
   const membershipEnded = turn.revoked && lifecycle?.state !== 'completed'
   const pendingLabel = membershipEnded
     ? t('bots.groups.memberRemoved', 'Member removed')
@@ -232,7 +240,9 @@ export const BotGroupTurn = memo(function BotGroupTurn({
             : t('bots.groups.starting', 'Starting…')
       : rejection
         ? t('bots.groups.notStarted', 'Not started')
-        : undefined
+        : lifecycle
+          ? undefined
+          : t('bots.groups.turnEnded', 'Ended')
   return (
     <BotGroupTranscriptOwner
       context={files}

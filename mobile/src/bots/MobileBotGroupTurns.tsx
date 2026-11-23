@@ -1,5 +1,5 @@
 import { useMobileTranslation } from '../i18n/use-mobile-translation'
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { folderWorkspaceKey } from '../../../src/shared/workspace/identity/workspace-scope'
 import { useMobileNativeChatVisualRenderer } from '../session/native-chat/visual/MobileNativeChatVisual'
@@ -10,12 +10,15 @@ import { MobileNativeChatRowOverlaysHost } from '../session/native-chat/transcri
 import { Reply, Square } from 'lucide-react-native'
 import { foldMobileNativeChatMessages } from '../session/native-chat/transcript/projection/mobile-native-chat-render-data'
 import {
-  botGroupOperationAdmitted,
   createBotGroupJournalIndexer,
   type indexBotGroupJournal,
   type BotGroupTurn,
   withBotGroupTurnAnswer
 } from '../../../src/shared/bots/bot-group'
+import {
+  BOT_GROUP_ENDED_PAGE_LIMIT,
+  botGroupTurnsOlderThanPage
+} from '../../../src/shared/bots/bot-group-journal-paging'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
 import { colors } from '../theme/mobile-theme'
 import { groupStyles as styles } from './mobile-bot-group-styles'
@@ -44,7 +47,10 @@ export const MobileBotGroupReader = memo(function Reader({
   visible,
   connected
 }: {
-  turn: Pick<BotGroupTurn, 'sessionId' | 'agent'> & { operationIds: readonly string[] }
+  turn: Pick<BotGroupTurn, 'sessionId' | 'agent'> & {
+    operationIds: readonly string[]
+    ended: ReadonlyMap<string, boolean>
+  }
   client: RpcClient
   support: StructuredAgentSessionHostSupport
   visible: boolean
@@ -68,20 +74,31 @@ export const MobileBotGroupReader = memo(function Reader({
     [indexJournal, session.journal.items, session.journal.submissions, turn.operationIds]
   )
   const { hasMore, loadingEarlier, loadEarlier, status } = session.session
+  // The rows a page was last asked for at: a read that failed or added nothing asks again once the
+  // rows change or the read restarts. Ended turns pull a bounded number of pages.
+  const pagedAt = useRef<unknown>(null)
+  const endedPages = useRef(0)
   useEffect(() => {
-    if (
-      visible &&
-      connected &&
-      status === 'ready' &&
-      hasMore &&
-      !loadingEarlier &&
-      // Page only for a turn the session admitted; queued or refused ones have no older rows to find.
-      turn.operationIds.some(
-        (id) => groupTurnItems(id).length === 0 && botGroupOperationAdmitted(session.journal, id)
-      )
-    ) {
-      void loadEarlier()
+    if (!visible || !connected || status !== 'ready') {
+      pagedAt.current = null
+      endedPages.current = 0
+      return
     }
+    if (!hasMore || loadingEarlier || pagedAt.current === session.journal.items) {
+      return
+    }
+    const reason = botGroupTurnsOlderThanPage(
+      session.journal,
+      turn.operationIds,
+      turn.ended,
+      groupTurnItems
+    )
+    if (!reason || (reason === 'ended' && endedPages.current >= BOT_GROUP_ENDED_PAGE_LIMIT)) {
+      return
+    }
+    endedPages.current += reason === 'ended' ? 1 : 0
+    pagedAt.current = session.journal.items
+    void loadEarlier()
   }, [
     visible,
     connected,
@@ -90,6 +107,7 @@ export const MobileBotGroupReader = memo(function Reader({
     loadingEarlier,
     loadEarlier,
     turn.operationIds,
+    turn.ended,
     groupTurnItems,
     session.journal
   ])
@@ -130,13 +148,20 @@ export function MobileBotGroupTurn({
   const queued = session?.queued.cards.some((card) => card.messageId === turn.operationId)
   const working = clock?.state === 'running' && !turn.revoked
   const source = useMemo(() => ({ client, sessionId: turn.sessionId }), [client, turn.sessionId])
+  // By meaning, not identity: every room page read builds fresh markers.
+  const ended = turn.ended !== undefined
+  const endedReply = turn.ended?.reply
   const rawMessages = useMemo(
     () =>
       withBotGroupTurnAnswer(
         transcript.messages(items).filter((message) => message.role !== 'user'),
-        { operationId: turn.operationId, answer: turn.answer }
+        {
+          operationId: turn.operationId,
+          answer: turn.answer,
+          ended: ended ? { reply: endedReply } : undefined
+        }
       ),
-    [items, turn.operationId, turn.answer]
+    [items, turn.operationId, turn.answer, ended, endedReply]
   )
   const fullContent = useMobileNativeChatMessageDetail(rawMessages, source)
   const messages = useMemo(
@@ -192,10 +217,12 @@ export function MobileBotGroupTurn({
                             ? t('chat.queuedMessages.queuedState', 'Queued')
                             : turn.error
                               ? t('bots.groups.notStarted', 'Not started')
-                              : t(
-                                  'bots.groups.waitingForTheNativeSession',
-                                  'Waiting for the native session…'
-                                )
+                              : turn.ended
+                                ? t('bots.groups.turnEnded', 'Ended')
+                                : t(
+                                    'bots.groups.waitingForTheNativeSession',
+                                    'Waiting for the native session…'
+                                  )
                           : undefined
                     }
                     startedAt={clock?.startedAt ?? null}
@@ -205,7 +232,7 @@ export function MobileBotGroupTurn({
                     onToggleExpanded={clock ? () => setExpanded(!expanded) : undefined}
                   />
                 </View>
-                {!turn.revoked && !turn.error && (working || !clock) ? (
+                {!turn.revoked && !turn.error && (working || (!clock && !turn.ended)) ? (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={t('bots.groups.stopValue', 'Stop {{value0}}', {
@@ -228,7 +255,7 @@ export function MobileBotGroupTurn({
               </View>
               {turn.error ? (
                 <Text style={styles.notice}>{botCodedText(turn.error, turn.failure, t)}</Text>
-              ) : !clock && !queued ? (
+              ) : !clock && !queued && !turn.ended ? (
                 <Text style={styles.notice}>
                   {t('bots.groups.waitingForTheNativeSession', 'Waiting for the native session…')}
                 </Text>

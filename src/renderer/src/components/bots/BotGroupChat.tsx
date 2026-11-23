@@ -105,7 +105,7 @@ export function BotGroupChat({
     }
     const bySession = new Map<
       string,
-      Pick<Turn, 'sessionId' | 'agent'> & { operationIds: string[] }
+      Pick<Turn, 'sessionId' | 'agent'> & { operationIds: string[]; ended: Map<string, boolean> }
     >()
     for (const member of group.members) {
       const bot = bots.find((bot) => bot.id === member.botId && bot.hostId === group.hostId)
@@ -113,17 +113,26 @@ export function BotGroupChat({
         bySession.set(member.sessionId, {
           sessionId: member.sessionId,
           agent: bot.agent,
-          operationIds: []
+          operationIds: [],
+          ended: new Map()
         })
       }
     }
     for (const message of messages) {
       for (const turn of message.turns) {
         if (!turn.revoked) {
+          const ended = bySession.get(turn.sessionId)?.ended ?? new Map<string, boolean>()
+          if (turn.ended) {
+            ended.set(turn.operationId, turn.ended.reply !== undefined)
+          }
           bySession.set(turn.sessionId, {
             sessionId: turn.sessionId,
             agent: turn.agent,
-            operationIds: [...(bySession.get(turn.sessionId)?.operationIds ?? []), turn.operationId]
+            operationIds: [
+              ...(bySession.get(turn.sessionId)?.operationIds ?? []),
+              turn.operationId
+            ],
+            ended
           })
         }
       }

@@ -145,13 +145,13 @@ export const BotGroupStop = Room.extend({ botId: z.string().min(1).optional() })
 export const BotGroupNewThread = GroupId.extend({})
 export const BotGroupDelete = GroupId
 
-type GroupJournal = {
+export type GroupJournal = {
   items: readonly AgentJournalRenderItem[]
   submissions: AgentJournalSnapshot['submissions']
 }
 
 /** The submission a group operation (its queued or client message id) handed to the session. */
-function submissionOf(snapshot: GroupJournal, operationId: string) {
+export function botGroupOperationSubmission(snapshot: GroupJournal, operationId: string) {
   // A queued card sent again keeps its id; its latest attempt is the one that counts.
   return snapshot.submissions.findLast(
     (submission) =>
@@ -191,7 +191,7 @@ export function indexBotGroupJournal(snapshot: GroupJournal) {
     operationId: string,
     workerDispatchIds: readonly string[] = []
   ): AgentJournalRenderItem[] => {
-    const submission = submissionOf(snapshot, operationId)
+    const submission = botGroupOperationSubmission(snapshot, operationId)
     const keys = [
       agentJournalSubmissionKey(submission?.clientMessageId ?? operationId),
       submission?.providerItemId ?? ''
@@ -221,32 +221,29 @@ export function botGroupTurnOperation(snapshot: GroupJournal, turnItemId: string
   return submission ? (submission.queuedMessageId ?? submission.clientMessageId) : null
 }
 
-/** The session took this operation in, so a turn with no loaded rows is older than the window,
- *  not still queued or refused. */
-export function botGroupOperationAdmitted(snapshot: GroupJournal, operationId: string): boolean {
-  return submissionOf(snapshot, operationId)?.dispatchState === 'accepted'
-}
-
 export function createBotGroupJournalIndexer() {
-  const retained = new Map<string, AgentJournalRenderItem[]>()
+  // Keyed by operation and whether the read takes its workers, so the two reads keep their own arrays;
+  // a newer worker list replaces the older one.
+  const retained = new Map<string, { operationId: string; rows: AgentJournalRenderItem[] }>()
   return (snapshot: GroupJournal, operationIds: readonly string[]) => {
     const allowed = new Set(operationIds)
-    for (const id of retained.keys()) {
-      if (!allowed.has(id)) {
-        retained.delete(id)
+    for (const [key, { operationId }] of retained) {
+      if (!allowed.has(operationId)) {
+        retained.delete(key)
       }
     }
     const read = indexBotGroupJournal(snapshot)
     return (operationId: string, workers: readonly string[] = []) => {
       const next = read(operationId, workers)
-      const previous = retained.get(operationId)
+      const key = workers.length > 0 ? `${operationId}\u0000workers` : operationId
+      const previous = retained.get(key)?.rows
       if (
         previous?.length === next.length &&
         next.every((item, index) => item === previous[index])
       ) {
         return previous
       }
-      retained.set(operationId, next)
+      retained.set(key, { operationId, rows: next })
       return next
     }
   }

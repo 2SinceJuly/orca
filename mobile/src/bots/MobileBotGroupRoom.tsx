@@ -110,17 +110,21 @@ export function MobileBotGroupRoom({
     () =>
       group?.members.flatMap((member) => {
         const bot = bots.find((bot) => bot.id === member.botId)
+        const turns =
+          data?.messages.flatMap((message) =>
+            message.turns.filter((turn) => turn.sessionId === member.sessionId && !turn.revoked)
+          ) ?? []
         return bot && isBotAgent(bot.agent)
           ? [
               {
                 sessionId: member.sessionId,
                 agent: bot.agent,
-                operationIds:
-                  data?.messages.flatMap((message) =>
-                    message.turns
-                      .filter((turn) => turn.sessionId === member.sessionId && !turn.revoked)
-                      .map((turn) => turn.operationId)
-                  ) ?? []
+                operationIds: turns.map((turn) => turn.operationId),
+                ended: new Map(
+                  turns.flatMap((turn) =>
+                    turn.ended ? [[turn.operationId, turn.ended.reply !== undefined] as const] : []
+                  )
+                )
               }
             ]
           : []

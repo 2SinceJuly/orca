@@ -1,12 +1,15 @@
-import { memo, useEffect, useMemo } from 'react'
+import { memo, useEffect, useMemo, useRef } from 'react'
 import type { RuntimeClientTarget } from '../../../../shared/remote-runtime/host-catalog/runtime-client-target'
 import { useStructuredAgentSession } from '../native-chat/session/structured/use-structured-agent-session'
 import {
-  botGroupOperationAdmitted,
   createBotGroupJournalIndexer,
   type indexBotGroupJournal,
   type BotGroupTurn
 } from '../../../../shared/bots/bot-group'
+import {
+  BOT_GROUP_ENDED_PAGE_LIMIT,
+  botGroupTurnsOlderThanPage
+} from '../../../../shared/bots/bot-group-journal-paging'
 export type BotGroupSession = ReturnType<typeof useStructuredAgentSession> & {
   groupTurnItems: ReturnType<typeof indexBotGroupJournal>
 }
@@ -18,7 +21,10 @@ export const BotGroupSessionReader = memo(function BotGroupSessionReader({
 }: {
   /** The group's host, which runs its members' sessions. */
   target: RuntimeClientTarget
-  turn: Pick<BotGroupTurn, 'sessionId' | 'agent'> & { operationIds: readonly string[] }
+  turn: Pick<BotGroupTurn, 'sessionId' | 'agent'> & {
+    operationIds: readonly string[]
+    ended: ReadonlyMap<string, boolean>
+  }
   visible: boolean
   report: (sessionId: string, session: BotGroupSession | null) => void
 }): null {
@@ -39,29 +45,38 @@ export const BotGroupSessionReader = memo(function BotGroupSessionReader({
     [indexJournal, controller.journalItems, controller.submissions, turn.operationIds]
   )
   const { readCurrent, hasOlder, loadingOlder, loadOlder } = controller
+  // The rows a page was last asked for at: a read that failed or added nothing asks again once the
+  // rows change or the read restarts. Ended turns pull a bounded number of pages.
+  const pagedAt = useRef<unknown>(null)
+  const endedPages = useRef(0)
   useEffect(() => {
-    if (
-      readCurrent &&
-      hasOlder &&
-      !loadingOlder &&
-      // Page only for a turn the session admitted; queued or refused ones have no older rows to find.
-      turn.operationIds.some(
-        (id) =>
-          groupTurnItems(id).length === 0 &&
-          botGroupOperationAdmitted(
-            { items: controller.journalItems, submissions: controller.submissions },
-            id
-          )
-      )
-    ) {
-      void loadOlder()
+    if (!readCurrent) {
+      pagedAt.current = null
+      endedPages.current = 0
+      return
     }
+    if (!hasOlder || loadingOlder || pagedAt.current === controller.journalItems) {
+      return
+    }
+    const reason = botGroupTurnsOlderThanPage(
+      { items: controller.journalItems, submissions: controller.submissions },
+      turn.operationIds,
+      turn.ended,
+      groupTurnItems
+    )
+    if (!reason || (reason === 'ended' && endedPages.current >= BOT_GROUP_ENDED_PAGE_LIMIT)) {
+      return
+    }
+    endedPages.current += reason === 'ended' ? 1 : 0
+    pagedAt.current = controller.journalItems
+    void loadOlder()
   }, [
     readCurrent,
     hasOlder,
     loadingOlder,
     loadOlder,
     turn.operationIds,
+    turn.ended,
     groupTurnItems,
     controller.journalItems,
     controller.submissions
