@@ -47,7 +47,7 @@ import { useMobileColorScheme } from '../../theme/use-mobile-color-scheme'
 import { commentOnBotItem } from './bot-item-operations'
 import { BotItemCommentMicContext } from './bot-item-comment-mic'
 import { botItemWriteFailure } from './use-bot-item-moves'
-import { useBotItemCommentImages } from './use-bot-item-comment-images'
+import { useBotDraftImages } from '../use-bot-draft-images'
 
 // Each item's unsent text, for this app session.
 const drafts = new Map<string, string>()
@@ -182,9 +182,9 @@ export function MobileBotItemCommentBox({
       focusMobileNativeChatTextDestination(scope)
       run()
     })
-  const photos = useBotItemCommentImages({
+  const photos = useBotDraftImages({
     client,
-    uid,
+    draftKey: uid,
     sessionId: attachTo,
     editText: (change) => (shownDrafts.get(key) ?? setText)(change(drafts.get(key) ?? '')),
     showToast
@@ -237,7 +237,7 @@ export function MobileBotItemCommentBox({
       )
       pickedSkills.delete(key)
       setText('')
-      photos.clear()
+      photos.clearSent(photos.images.map((image) => image.id))
     }
   }
   useImperativeHandle(ref, () => ({

@@ -24,7 +24,7 @@ export type MobileScrollTailMetrics = {
   layoutMeasurement: { height: number }
 }
 
-function distanceFromTail(event: MobileScrollTailMetrics): number {
+export function distanceFromTail(event: MobileScrollTailMetrics): number {
   const { contentOffset, contentSize, layoutMeasurement } = event
   return contentSize.height - (contentOffset.y + layoutMeasurement.height)
 }
