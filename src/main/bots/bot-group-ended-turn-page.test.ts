@@ -92,11 +92,14 @@ it('pages back for an ended turn whose send is older than the loaded page', () =
   const tail: { items: AgentJournalRenderItem[]; submissions: [] } = { items: [], submissions: [] }
   const only = (id: string) => message.turns.filter((t) => t.operationId === id)
   const none = () => []
-  expect(botGroupTurnsOlderThanPage(tail, only('finished'), none, true)).toBe('ended')
+  const all = { ended: true, hidden: true }
+  expect(botGroupTurnsOlderThanPage(tail, only('finished'), none, all)).toBe('ended')
   // A turn with no submission on the page and no end may be queued; nothing older to find.
-  expect(botGroupTurnsOlderThanPage(tail, only('running'), none, true)).toBe(null)
+  expect(botGroupTurnsOlderThanPage(tail, only('running'), none, all)).toBe(null)
   // Once the reader spent its pages for ended turns, it looks no further for them.
-  expect(botGroupTurnsOlderThanPage(tail, only('finished'), none, false)).toBe(null)
+  expect(
+    botGroupTurnsOlderThanPage(tail, only('finished'), none, { ended: false, hidden: false })
+  ).toBe(null)
   // Only its last tool call loaded: its text is further back, so the room keeps paging until it is.
   const row = (body: AgentJournalRenderItem['body']): AgentJournalRenderItem => ({
     itemId: 'row',
@@ -115,10 +118,10 @@ it('pages back for an ended turn whose send is older than the loaded page', () =
     role: 'assistant',
     blocks: [{ type: 'text', text: 'Audit done.' }]
   })
-  expect(botGroupTurnsOlderThanPage(tail, only('finished'), () => [call], true)).toBe('ended')
-  expect(botGroupTurnsOlderThanPage(tail, only('finished'), () => [said, call], true)).toBe(null)
+  expect(botGroupTurnsOlderThanPage(tail, only('finished'), () => [call], all)).toBe('ended')
+  expect(botGroupTurnsOlderThanPage(tail, only('finished'), () => [said, call], all)).toBe(null)
   // A turn that ended without a reply has no text to find.
-  expect(botGroupTurnsOlderThanPage(tail, only('quiet'), () => [call], true)).toBe(null)
+  expect(botGroupTurnsOlderThanPage(tail, only('quiet'), () => [call], all)).toBe(null)
 })
 
 it('keeps a page of long replies far under the reply limit, newest posts first', () => {
@@ -143,7 +146,7 @@ it('keeps a page of long replies far under the reply limit, newest posts first',
   expect(messages[0].turns[0].ended?.reply).toBe('')
 })
 
-it('shares the page budget so one post of many long replies shows every one', () => {
+it('shares the page budget so one post of many long replies shows every one, and pages further for one it had no room for', () => {
   const { store, groups } = room()
   store.append({
     id: 'message-1',
@@ -154,7 +157,14 @@ it('shares the page budget so one post of many long replies shows every one', ()
     turns: Array.from({ length: 32 }, (_, index) => turn(`op-${index}`, 'x'.repeat(5_000)))
   })
   const [message] = readBotGroup(groups, 'group-1').messages
-  expect(message.turns.every((t) => (t.ended?.reply?.length ?? 0) >= 2_000)).toBe(true)
+  expect(message.turns.every((t) => (t.ended?.reply?.length ?? 0) >= 500)).toBe(true)
+  // A turn the budget left without text pages further than one whose reply shows.
+  const tail: { items: AgentJournalRenderItem[]; submissions: [] } = { items: [], submissions: [] }
+  const unshown = [{ operationId: 'op-x', ended: { reply: '' } }]
+  const shown = [{ operationId: 'op-y', ended: { reply: 'Done.' } }]
+  const spent = { ended: false, hidden: true }
+  expect(botGroupTurnsOlderThanPage(tail, unshown, () => [], spent)).toBe('hidden')
+  expect(botGroupTurnsOlderThanPage(tail, shown, () => [], spent)).toBe(null)
 })
 
 it("leaves a member turn end's room notice to the reply save, not the phase change", () => {

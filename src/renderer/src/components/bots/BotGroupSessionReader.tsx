@@ -8,6 +8,7 @@ import {
 } from '../../../../shared/bots/bot-group'
 import {
   BOT_GROUP_ENDED_PAGE_LIMIT,
+  BOT_GROUP_HIDDEN_PAGE_LIMIT,
   type BotGroupReaderTurn,
   botGroupTurnsOlderThanPage
 } from '../../../../shared/bots/bot-group-journal-paging'
@@ -63,12 +64,15 @@ export const BotGroupSessionReader = memo(function BotGroupSessionReader({
       { items: controller.journalItems, submissions: controller.submissions },
       turn.turns,
       groupTurnItems,
-      endedPages.current < BOT_GROUP_ENDED_PAGE_LIMIT
+      {
+        ended: endedPages.current < BOT_GROUP_ENDED_PAGE_LIMIT,
+        hidden: endedPages.current < BOT_GROUP_HIDDEN_PAGE_LIMIT
+      }
     )
     if (!reason) {
       return
     }
-    endedPages.current += reason === 'ended' ? 1 : 0
+    endedPages.current += reason === 'admitted' ? 0 : 1
     pagedAt.current = controller.journalItems
     void loadOlder()
   }, [

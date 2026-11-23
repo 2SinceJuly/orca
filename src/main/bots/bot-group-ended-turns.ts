@@ -4,7 +4,7 @@ import type { BotGroupMessage } from '../../shared/bots/bot-group'
 const ROOM_PAGE_REPLY_CHARS = 4_000
 /** All of a page's reply tails, so a page of 32-member posts, with the page's answers, stays far
  *  under the reply limit even in 3-byte characters. */
-const ROOM_PAGE_REPLY_BUDGET = 64_000
+const ROOM_PAGE_REPLY_BUDGET = 16_000
 
 /** The least of a reply a turn gets while the page's budget lasts. */
 const ROOM_PAGE_REPLY_MIN_CHARS = 500
