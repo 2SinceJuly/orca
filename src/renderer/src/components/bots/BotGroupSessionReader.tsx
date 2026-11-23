@@ -48,13 +48,13 @@ export const BotGroupSessionReader = memo(function BotGroupSessionReader({
   )
   const { readCurrent, hasOlder, loadingOlder, loadOlder } = controller
   // The rows a page was last asked for at: a read that failed or added nothing asks again once the
-  // rows change or the read restarts. Ended turns pull a bounded number of pages.
+  // rows change or the read restarts. Ended turns pull a bounded number of pages per reader, which a
+  // restart does not refill, so reopening a room never reads further back.
   const pagedAt = useRef<unknown>(null)
   const endedPages = useRef(0)
   useEffect(() => {
     if (!readCurrent) {
       pagedAt.current = null
-      endedPages.current = 0
       return
     }
     if (!hasOlder || loadingOlder || pagedAt.current === controller.journalItems) {
