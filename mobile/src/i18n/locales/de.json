@@ -3029,6 +3029,9 @@
       "download": "Für dieses Telefon herunterladen",
       "downloadSize": "Etwa {{size}} MB",
       "phoneChecking": "Wird geprüft…"
+    },
+    "bots": {
+      "memoryAlreadySaved": "Diese Erinnerung ist bereits gespeichert."
     }
   },
   "sourceControl": {

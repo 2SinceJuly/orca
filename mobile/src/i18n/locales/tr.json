@@ -3029,6 +3029,9 @@
       "download": "Bu telefona indir",
       "downloadSize": "Yaklaşık {{size}} MB",
       "phoneChecking": "Kontrol ediliyor…"
+    },
+    "bots": {
+      "memoryAlreadySaved": "Bu bilgi zaten bellekte."
     }
   },
   "sourceControl": {

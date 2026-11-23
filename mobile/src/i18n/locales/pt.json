@@ -3505,6 +3505,9 @@
       "download": "Baixar para este celular",
       "downloadSize": "Cerca de {{size}} MB",
       "phoneChecking": "Verificando…"
+    },
+    "bots": {
+      "memoryAlreadySaved": "Essa informação já está na memória."
     }
   },
   "sourceControl": {

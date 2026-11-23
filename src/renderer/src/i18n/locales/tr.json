@@ -1215,7 +1215,8 @@
         "ownNone": "Henüz kendine ait becerisi yok.",
         "ownShort": "Kendi becerileri",
         "showMore": "{{count}} tane daha göster"
-      }
+      },
+      "memoryAlreadySaved": "Bu bilgi zaten bellekte."
     },
     "automaticUpdates": {
       "title": "Otomatik güncellemeler",

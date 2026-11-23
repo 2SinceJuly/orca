@@ -3023,6 +3023,9 @@
       "download": "下載到此手機",
       "downloadSize": "約 {{size}} MB",
       "phoneChecking": "正在檢查…"
+    },
+    "bots": {
+      "memoryAlreadySaved": "這條已經在記憶裡了"
     }
   },
   "sourceControl": {
