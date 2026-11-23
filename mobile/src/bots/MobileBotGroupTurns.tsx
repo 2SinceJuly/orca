@@ -23,6 +23,7 @@ import {
   botGroupTurnsOlderThanPage
 } from '../../../src/shared/bots/bot-group-journal-paging'
 import { useMobileColorScheme } from '../theme/use-mobile-color-scheme'
+import { useAppActive } from '../hooks/use-now'
 import { colors } from '../theme/mobile-theme'
 import { groupStyles as styles } from './mobile-bot-group-styles'
 import { mobileBotAvatarSource } from './host-bot-row-facts'
@@ -80,12 +81,14 @@ export const MobileBotGroupReader = memo(function Reader({
   // The rows a page was last asked for at: a read that failed or added nothing asks again once the
   // rows change or the read restarts. Ended turns pull a bounded number of pages per reader, which a
   // restart does not refill, so reopening a room never reads further back.
+  // Route focus alone stays true in the background, where the connection can outlive the app.
+  const appActive = useAppActive()
   const pagedAt = useRef<unknown>(null)
   const endedPages = useRef(0)
   const retries = useRef<{ rows: unknown; count: number }>({ rows: null, count: 0 })
   const [retry, setRetry] = useState(0)
   useEffect(() => {
-    if (!visible || !connected || status !== 'ready') {
+    if (!visible || !appActive || !connected || status !== 'ready') {
       pagedAt.current = null
       return undefined
     }
@@ -121,6 +124,7 @@ export const MobileBotGroupReader = memo(function Reader({
   }, [
     retry,
     visible,
+    appActive,
     connected,
     status,
     hasMore,
