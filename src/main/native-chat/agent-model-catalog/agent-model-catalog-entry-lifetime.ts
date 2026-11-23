@@ -15,9 +15,10 @@ import {
 
 export function agentModelCatalogEntryIsStale(
   entry: AgentModelCatalogEntry,
-  due: boolean
+  due: boolean,
+  now: number
 ): boolean {
-  return due || !entry.discovered
+  return due || !entry.discovered || (entry.relistAfter !== undefined && now >= entry.relistAfter)
 }
 
 export function recordAgentModelCatalogPartialAttempt(

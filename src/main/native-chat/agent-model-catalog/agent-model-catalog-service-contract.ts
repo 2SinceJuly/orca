@@ -47,6 +47,8 @@ export type AgentModelCatalogService = {
   retireContext: (workspaceId?: string) => void
   peek: (sessionId: string, verifiedOnly?: boolean) => AgentModelCatalogEntry | null
   read: (params: AgentModelCatalogReadParams) => Promise<AgentSessionModelCatalogResult>
+  /** The agent's next read lists again, leaving other agents' catalogs alone. */
+  relist: (agent: string) => void
   /** Saves a session's listing and newly learned menus so the next chat starts warm. */
   recordLiveListing: (
     sessionId: string,

@@ -5,18 +5,22 @@ import type {
   AgentModelCatalogConfiguredDefault,
   AgentModelCatalogConfiguredChoice
 } from './agent-model-catalog-entry'
+import { usesModelSpecificAcpEfforts } from '../../../shared/agent-session/options/model-catalog/agent-model-catalog-ownership'
+import { keptAgentModelRows } from './agent-model-catalog-kept-rows'
 
 /** Newer listings own membership/menus; configured facts then discovery/live determine defaults. */
 export function mergedAgentModelCatalogModels(
+  agent: string,
   discovered: AgentModelCatalogListing | null,
   live: AgentModelCatalogListing | null,
-  configured: AgentModelCatalogConfiguredDefault | null,
-  modelSpecificEfforts = false
+  configured: AgentModelCatalogConfiguredDefault | null
 ): AgentSessionModelOption[] {
+  const modelSpecificEfforts = usesModelSpecificAcpEfforts(agent)
   const liveIsNewer = live !== null && (discovered === null || live.at >= discovered.at)
   const newer = liveIsNewer ? live : discovered
   const older = liveIsNewer ? discovered : live
-  return (newer?.models ?? []).map((model) => {
+  const rows = keptAgentModelRows(agent, newer, older)
+  return rows.map((model) => {
     const listed = discovered?.models.find((entry) => entry.id === model.id)
     const reported = live?.models.find((entry) => entry.id === model.id)
     const olderModel = older?.models.find((entry) => entry.id === model.id)

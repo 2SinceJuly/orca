@@ -64,8 +64,9 @@ export class AgentModelCatalogInputs {
     }
   }
 
-  expireScopes(agent?: string): void {
-    if (agent) {
+  /** Without `retire`, the agent's running chats keep saving what they list. */
+  expireScopes(agent?: string, retire = true): void {
+    if (agent && retire) {
       this.state.retireAgent(agent)
     }
     const scopes = new Set([

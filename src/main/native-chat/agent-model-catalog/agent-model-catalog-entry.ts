@@ -3,6 +3,7 @@ import {
   mergedAgentModelCatalogModels
 } from './agent-model-catalog-models'
 import { configuredCatalogChoice } from './agent-model-catalog-configured-row'
+import { keptAgentModelRowsRelistAt, withKeptAgentModelRows } from './agent-model-catalog-kept-rows'
 import * as modelCatalogOwnership from '../../../shared/agent-session/options/model-catalog/agent-model-catalog-ownership'
 import { fillUnknownModelEfforts } from '../../../shared/agent-session/options/model-catalog/agent-session-model-efforts'
 import type { AgentSessionUnavailable } from '../../../shared/agent-session/failures/agent-session-availability'
@@ -35,6 +36,8 @@ export type AgentModelCatalogListing = {
   origin: 'live-session' | 'probe'
   at: number
   complete?: boolean
+  /** Rows an earlier probe listed and this one did not, with when that probe listed them. */
+  keptAt?: Record<string, number>
 }
 
 // Keep wire types independent of the store's Node-only persistence.
@@ -115,6 +118,8 @@ export type AgentModelCatalogEntry = {
   fastModeSupport?: AgentSessionFastModeSupport
   origin: 'live-session' | 'probe'
   fetchedAt: number
+  /** From then on a read lists again: a shown row is aging out or the probe lacked one. */
+  relistAfter?: number
 }
 
 export function agentModelCatalogResultFromEntry(
@@ -148,25 +153,23 @@ export function agentModelCatalogEntry(
   }
   const older = newer === live ? discovered : live
   const fastModeSupport = newer.fastModeSupport ?? older?.fastModeSupport
+  const models = mergedAgentModelCatalogModels(agent, discovered, live, configured).map((model) =>
+    modelCatalogOwnership.independentAgentModelCatalog(agent) && discovered?.complete !== true
+      ? { ...model, isDefault: false }
+      : model
+  )
+  const relistAfter = keptAgentModelRowsRelistAt(agent, discovered, live, models)
   return {
     agent,
     fingerprint,
     discovered,
     live,
     configured,
-    models: mergedAgentModelCatalogModels(
-      discovered,
-      live,
-      configured,
-      modelCatalogOwnership.usesModelSpecificAcpEfforts(agent)
-    ).map((model) =>
-      modelCatalogOwnership.independentAgentModelCatalog(agent) && discovered?.complete !== true
-        ? { ...model, isDefault: false }
-        : model
-    ),
+    models,
     ...(fastModeSupport ? { fastModeSupport } : {}),
     origin: newer.origin,
-    fetchedAt: newer.at
+    fetchedAt: newer.at,
+    ...(relistAfter !== undefined ? { relistAfter } : {})
   }
 }
 
@@ -249,8 +252,9 @@ export function agentModelCatalogEntryWithSuccess(
     }
     return agentModelCatalogEntry(agent, fingerprint, listing, null, configured)
   }
+  const kept = withKeptAgentModelRows(agent, listing, previous?.discovered)
   return source === 'discovery'
-    ? agentModelCatalogEntry(agent, fingerprint, listing, previous?.live ?? null, configured)
+    ? agentModelCatalogEntry(agent, fingerprint, kept, previous?.live ?? null, configured)
     : agentModelCatalogEntry(agent, fingerprint, previous?.discovered ?? null, listing, configured)
 }
 

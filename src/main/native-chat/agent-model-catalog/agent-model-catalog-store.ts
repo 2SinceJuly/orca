@@ -134,9 +134,8 @@ export class AgentModelCatalogStore {
   }
 
   /** Live saves must not delay account-level discovery. */
-  isStale(entry: AgentModelCatalogEntry): boolean {
-    return agentModelCatalogEntryIsStale(entry, this.dueEntries.has(entry.fingerprint))
-  }
+  isStale = (entry: AgentModelCatalogEntry): boolean =>
+    agentModelCatalogEntryIsStale(entry, this.dueEntries.has(entry.fingerprint), this.now())
 
   failureDetail(fingerprint: string): string | null {
     return this.failures.detail(fingerprint)
@@ -190,6 +189,9 @@ export class AgentModelCatalogStore {
   expireScopes(agent?: string): void {
     this.inputs.expireScopes(agent)
   }
+
+  /** A user's Refresh: the agent's next read lists again; other agents and its chats are untouched. */
+  relistAgent = (agent: string): void => this.inputs.expireScopes(agent, false)
 
   expireFailure(fingerprint: string): void {
     this.failures.expire(fingerprint)

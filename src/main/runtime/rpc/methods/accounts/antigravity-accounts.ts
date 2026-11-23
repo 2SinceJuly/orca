@@ -11,7 +11,7 @@ import {
 } from '../../../../../shared/rpc-contract/accounts/antigravity-accounts-params'
 import { AntigravityChatAuthConfigSchema } from '../../../../../shared/agent-accounts/antigravity/antigravity-chat-auth-config'
 import { getAntigravityAccountService } from '../../../../antigravity/native-account-host'
-import { restartIdleAgyChats, withAntigravityChatBackend } from './antigravity-chat-backend'
+import { switchedAgyAccount, withAntigravityChatBackend } from './antigravity-chat-backend'
 import { lastAntigravityAgySignedOut } from '../../../../antigravity/antigravity-chat-route'
 import { readyAntigravityHostAcpVersion } from '../../../../antigravity/antigravity-host-acp'
 import {
@@ -118,7 +118,7 @@ export const ANTIGRAVITY_ACCOUNT_METHODS = [
     params: AntigravityAccountMutationParams,
     handler: async ({ target, accountId }, ctx) => {
       const state = await (await getAntigravityAccountService(target)).selectAccount(accountId)
-      restartIdleAgyChats(target)
+      switchedAgyAccount(target)
       return withAntigravityChatBackend(ctx.runtime, target, state)
     }
   }),

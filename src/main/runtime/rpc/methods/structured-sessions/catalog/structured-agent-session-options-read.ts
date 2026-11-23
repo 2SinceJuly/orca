@@ -84,7 +84,7 @@ export const STRUCTURED_AGENT_SESSION_OPTIONS_READ_METHODS = [
     permission: 'workspace',
     params: ModelCatalogParams,
     // Session reads may build the host; session-less terminal reads must not open unused structured journals.
-    handler: async ({ worktree, ...params }, ctx) => {
+    handler: async ({ worktree, relist, ...params }, ctx) => {
       requireStructuredAgentAudience(ctx, params.agent)
       const host =
         params.sessionId === undefined
@@ -102,6 +102,9 @@ export const STRUCTURED_AGENT_SESSION_OPTIONS_READ_METHODS = [
           : await ctx.runtime.structuredAgentModelCatalog()
         if (!catalog) {
           return { origin: 'unknown' }
+        }
+        if (relist && !params.savedOnly) {
+          catalog.relist(params.agent)
         }
         // A floating chat runs in the folder it was created in, not the floating setting's current one.
         const launchDirectory = record ? agentSessionPinnedLaunchDirectory(record) : undefined

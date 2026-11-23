@@ -150,6 +150,7 @@ export function createAgentModelCatalogService(
       // Expiring a reader cannot settle the listing, including for clients predating waitExpired.
       return { ...answer, waitExpired: true }
     },
+    relist: (agent) => deps.store.relistAgent(agent),
     recordLiveListing: live.recordLiveListing,
     async prewarm() {
       await prewarmAgentModelCatalog(deps, lifetime.signal, (params) => this.read(params))

@@ -22,6 +22,7 @@ import {
   type AntigravityChatRoute
 } from '../../../../antigravity/antigravity-chat-route'
 import { withTimeout } from '../../../../../shared/concurrency/promise-timeout-fallback'
+import { agentModelCatalogStore } from '../../../../native-chat/agent-model-catalog/agent-model-catalog-store'
 
 const CHAT_BACKEND_WAIT_MS = 1_500
 
@@ -85,9 +86,12 @@ export async function withAntigravityChatBackend(
   }
 }
 
-/** A running `agy acp` may keep the login it started with, so idle chats on agy stop and resume on
- *  the newly selected account at their next send; busy ones keep their turn (#43375). */
-export function restartIdleAgyChats(target: AntigravityAccountTarget): void {
+/** agy now holds another account in the same home. Its catalog, and listings from chats still on
+ *  the previous login, belong to that account. A running `agy acp` may keep the login it started
+ *  with, so idle chats on agy stop and resume on the new account at their next send; busy ones keep
+ *  their turn (#43375). */
+export function switchedAgyAccount(target: AntigravityAccountTarget): void {
+  agentModelCatalogStore.expireAgent('antigravity')
   if (target.runtime !== 'host') {
     return
   }
