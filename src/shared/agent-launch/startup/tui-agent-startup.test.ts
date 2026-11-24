@@ -50,6 +50,13 @@ describe('argv prompt separator (#48072)', () => {
     )
   })
 
+  it('still separates when the `--` is a draft prefill value', () => {
+    // `--prefill <text>` takes an operand, so this `--` seeds the input instead of ending options.
+    expect(promptLaunch('--prefill -- --disallowedTools Agent', 'posix')).toBe(
+      "claude '--prefill' '--' '--disallowedTools' 'Agent' '--' 'Reply OK'"
+    )
+  })
+
   it('ignores a `--` inside a wrapper command override', () => {
     expect(promptLaunch('', 'posix', 'grok', 'mise exec -- grok')).toBe(
       "mise exec -- grok '--' 'Reply OK'"

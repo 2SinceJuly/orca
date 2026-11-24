@@ -34,6 +34,7 @@ const AGENT_REQUIRED_VALUE_OPTIONS: Partial<Record<AgentType, readonly string[]>
     '--permission-prompt-tool',
     '--plugin-dir',
     '--plugin-url',
+    '--prefill',
     '--remote-control-session-name-prefix',
     '--session-id',
     '--setting-sources',
