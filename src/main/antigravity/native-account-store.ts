@@ -66,9 +66,12 @@ function isVerifiedLogin(value: unknown): value is VerifiedAntigravityLogin {
 function requireProtection(): void {
   const secrets = getSecretStore()
   // A gap alone is not a refusal: a headless server seals with a key kept beside its credential
-  // directory and always reports that gap, which is what the other credential writers accept (#50266).
-  // Kind `none` is the Electron `basic_text` backend, whose built-in key leaves the file readable —
-  // and a store that cannot describe its seal is treated as unsealed, per the SecretStore contract.
+  // directory and always reports that gap, so gating on the gap makes saving impossible there (#50266).
+  // Writers here differ by what they promise: profile-cloud-session-sealing.ts accepts the same
+  // kinds, mcp-server-set-key-secret.ts demands a real OS keychain, and
+  // browser-password-vault-file.ts refuses on any gap. Kind `none` is the Electron `basic_text`
+  // backend, whose built-in key leaves the file readable — and a store that cannot describe its
+  // seal is treated as unsealed, per the SecretStore contract.
   const sealing = secrets.describeSealing?.()
   if (!secrets.isEncryptionAvailable() || sealing?.kind === 'none' || !sealing) {
     throw new Error(
