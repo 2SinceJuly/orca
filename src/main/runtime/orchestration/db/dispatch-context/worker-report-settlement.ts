@@ -1,4 +1,5 @@
 import { markUnreadFollowUpMail } from './worker-follow-up-lineage'
+import { handHelperMailToRun } from '../messages/helper-mailbox-hand-back'
 import type { WorkerReportOutcome, WorkerReportSettlement } from '../orchestration-records'
 import type { OrchestrationDb } from '../orchestration-db'
 import { settleActiveDispatchesForTask } from './dispatch-completion'
@@ -244,10 +245,9 @@ export function settleWorkerReportInTransaction(
     expectedDispatchStatus,
     params.outcome === 'failed' ? params.result : undefined
   )
-  // A question outlives the report that happened to pass through its worker's Dispatch. It is
-  // raised by a running dispatch and answered at the Run home; closing it here dropped a question
-  // the coordinator still shows, and an unanswerable one made the worker's clean turn-end read as
-  // a stop without a report (#51737). Answering and settlement close it.
+  // A question outlives any report but the failure that ended its worker: closing it here erased
+  // the evidence a clean turn-end rests on, so the reply was refused as dispatch_inactive (#51737).
+  handHelperMailToRun(this, params.dispatchId)
   if (params.outcome === 'failed') {
     this.closeQuestionsForDispatch(params.dispatchId)
     for (const sibling of siblingDispatchIds) {

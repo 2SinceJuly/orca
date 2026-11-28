@@ -209,6 +209,35 @@ describe('lifecycle reconciliation', () => {
     expect(db.awaitsAnswerToLatestQuestion(dispatch.id)).toBe(false)
   })
 
+  it('hands a creator\'s unread helper mail to the Run when its successful report settles', () => {
+    db = new OrchestrationDb(':memory:')
+    const task = db.createTask({ runId: 'run_legacy_local', spec: 'work' })
+    const creator = createRootDispatch(db, task.id, 'term_creator')
+    const helperTask = db.createTask({ runId: 'run_legacy_local', spec: 'help' })
+    const helper = createRootDispatch(db, helperTask.id, 'term_helper')
+    db.db
+      .prepare('UPDATE dispatch_contexts SET creator_dispatch_id = ? WHERE id = ?')
+      .run(creator.id, helper.id)
+    const mail = db.insertMessage({
+      runId: 'run_legacy_local',
+      from: 'term_helper',
+      to: `dispatch:${creator.id}`,
+      subject: 'Status',
+      type: 'status'
+    })
+    const report = db.insertMessage({
+      runId: 'run_legacy_local',
+      from: 'term_creator',
+      to: 'term_coordinator',
+      subject: 'Done',
+      type: 'worker_done',
+      payload: JSON.stringify({ taskId: task.id, dispatchId: creator.id, outcome: 'succeeded' })
+    })
+
+    expect(reconcileLifecycleMessage(db, report).action).toBe('completed')
+    expect(db.getMessageById(mail.id)?.to_handle).toBe('run:run_legacy_local')
+  })
+
   it('rejects mismatched opaque pane keys instead of treating them as legacy', () => {
     db = new OrchestrationDb(':memory:')
     const task = db.createTask({ runId: 'run_legacy_local', spec: 'work' })
