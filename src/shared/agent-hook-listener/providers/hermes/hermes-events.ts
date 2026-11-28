@@ -92,6 +92,17 @@ export function withHermesPaneSessionId(
     : hookPayload
 }
 
+/** Hermes' guardian LLM deciding a command by itself asks no person; only its `escalate` reaches a human, via a second hook with a real surface. */
+function isHermesSmartApprovalDecision(
+  eventName: unknown,
+  hookPayload: Record<string, unknown>
+): boolean {
+  return (
+    (eventName === 'pre_approval_request' || eventName === 'post_approval_response') &&
+    hookPayload.surface === 'smart'
+  )
+}
+
 export function normalizeHermesEvent(
   state: HookListenerState,
   eventName: unknown,
@@ -102,6 +113,11 @@ export function normalizeHermesEvent(
   const stateName = typeof eventName === 'string' ? HERMES_EVENT_STATES[eventName] : undefined
 
   if (!stateName) {
+    return null
+  }
+
+  // Why: forwarding a smart approval would flip a working worker to needs-input for the ~2s the guardian runs.
+  if (isHermesSmartApprovalDecision(eventName, hookPayload)) {
     return null
   }
 
