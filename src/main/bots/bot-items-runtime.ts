@@ -177,9 +177,32 @@ export class BotItemsHost {
   }
 
   /** The chat that owns an item, as the item view shows it. */
-  owningChat({ chatId: id, source }: Pick<BotItemRecord, 'chatId' | 'source'>): BotItem['chat'] {
+  owningChat({
+    chatId: id,
+    ownerBotId,
+    source
+  }: Pick<BotItemRecord, 'chatId' | 'ownerBotId' | 'source'>): BotItem['chat'] {
     const gone = this.deps.chatExists(id) ? {} : { gone: true as const }
-    return { id, kind: source.kind, title: this.deps.chatTitle(id) ?? source.title, ...gone }
+    return {
+      id,
+      ...this.settledSource(ownerBotId, id, source),
+      title: this.deps.chatTitle(id) ?? source.title,
+      ...gone
+    }
+  }
+
+  /** The source an item's row recorded, as it holds now. `bot new-chat` replaces a bot's Home Chat
+   *  without touching the items made in the old one, so a `home` source only stays home while the
+   *  chat it names is still that bot's; an older Home Chat is a plain chat, labelled by its title. */
+  private settledSource(ownerBotId: string, chatId: string, source: BotItemSource): BotItemSource {
+    if (source.kind !== 'home') {
+      return source
+    }
+    const bot = this.deps.bots().find((entry) => entry.id === ownerBotId)
+    const current = bot?.chatSessionId
+    return current && this.deps.chatRoot(current) === chatId
+      ? source
+      : { kind: 'chat', title: source.title }
   }
 
   /** These items changed: their bots' lists re-read just them, and one that is now In progress with
